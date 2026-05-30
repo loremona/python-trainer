@@ -25,10 +25,23 @@ import sys
 
 # Importa il curriculum e il runner reali dall'app (la UI è dietro __main__,
 # quindi l'import non avvia Streamlit; gli unici output sono warning innocui).
+import os
+import json
+
 import app
 
 CURRICULUM = app.CURRICULUM
 run_code   = app.run_code
+
+# Soluzioni canoniche complete (chiave "modulo#idx" → codice eseguibile).
+# Coprono gli esercizi il cui `hint` è solo un frammento: con la soluzione
+# completa l'harness può verificarli invece di limitarsi a SKIP.
+_SOL_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "soluzioni.json")
+try:
+    with open(_SOL_FILE, encoding="utf-8") as _f:
+        SOLUZIONI = json.load(_f)
+except Exception:
+    SOLUZIONI = {}
 
 
 def _norm(t: str) -> str:
@@ -36,7 +49,7 @@ def _norm(t: str) -> str:
     return "\n".join(l.strip() for l in t.strip().splitlines())
 
 
-def check_exercise(ex: dict):
+def check_exercise(ex: dict, ref: str):
     """Ritorna (esito, dettaglio) con esito in {'PASS','SKIP','FAIL'}."""
     tipo = ex.get("tipo")
 
@@ -50,23 +63,31 @@ def check_exercise(ex: dict):
             return "PASS", ""
         return "FAIL", f"output reale {out.strip()!r} non contiene expected {expected!r}"
 
-    # ── normali / debug: l'hint (soluzione) deve far passare la check ──────────
-    if "check" in ex and "hint" in ex:
-        out, err, vs = run_code(ex["hint"])
-        if err:
-            # L'hint non gira da solo: quasi sempre è un frammento o una
-            # spiegazione, non la soluzione completa. Non auto-verificabile.
-            return "SKIP", "hint non eseguibile da solo (frammento)"
-        try:
-            ok = ex["check"](out, err, vs)
-        except Exception as e:
-            return "FAIL", f"la lambda check ha sollevato {type(e).__name__}: {e}"
-        if ok:
-            return "PASS", ""
-        return "FAIL", f"hint gira pulito ma la check ritorna False (output: {out.strip()!r})"
+    if "check" not in ex:
+        return "SKIP", "nessuna check da verificare"
 
-    # Nessun modo di verificarlo (es. esercizio AI runtime): salta.
-    return "SKIP", "nessuna soluzione canonica da verificare"
+    # ── soluzione canonica: hint completo, oppure voce in soluzioni.json ───────
+    soluzione = SOLUZIONI.get(ref)
+    if soluzione is None and "hint" in ex:
+        # Se l'hint gira da solo è già una soluzione completa; altrimenti è un
+        # frammento e serve una voce in soluzioni.json.
+        out, err, _ = run_code(ex["hint"])
+        if err is None:
+            soluzione = ex["hint"]
+
+    if soluzione is None:
+        return "SKIP", "hint frammentario e nessuna voce in soluzioni.json"
+
+    out, err, vs = run_code(soluzione)
+    if err:
+        return "FAIL", f"la soluzione va in errore: {err.splitlines()[-1]}"
+    try:
+        ok = ex["check"](out, err, vs)
+    except Exception as e:
+        return "FAIL", f"la lambda check ha sollevato {type(e).__name__}: {e}"
+    if ok:
+        return "PASS", ""
+    return "FAIL", f"soluzione gira pulita ma la check ritorna False (output: {out.strip()!r})"
 
 
 def main():
@@ -77,7 +98,7 @@ def main():
     for m in CURRICULUM:
         mid = m["id"]
         for j, ex in enumerate(m["esercizi"]):
-            esito, dettaglio = check_exercise(ex)
+            esito, dettaglio = check_exercise(ex, f"{mid}#{j}")
             counts[esito] += 1
             ref = f"{mid}#{j}"
             if esito == "FAIL":
