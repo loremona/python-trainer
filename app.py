@@ -35,6 +35,7 @@ LEVELS = [
 ]
 
 XP_VALS = dict(esercizio=15, first_try=10, no_hint=5, modulo=25, streak=10)
+SFIDA_BONUS = 20   # XP extra per la sfida del giorno
 
 BADGES = {
     "primo_passo":   ("🎯", "Primo Passo",        "Primo esercizio completato"),
@@ -955,8 +956,60 @@ def render_sidebar():
 # MAP VIEW
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+def sfida_del_giorno():
+    """Esercizio-sfida deterministico per la giornata, scelto fra i moduli
+    sbloccati. Il pick viene fissato nel save al primo accesso del giorno,
+    così resta stabile anche se sblocchi altri moduli più tardi."""
+    s = st.session_state.save
+    today = str(date.today())
+    sf = s.get("sfida")
+    if sf and sf.get("date") == today and sf.get("mod") < len(CURRICULUM):
+        mod_i, j = sf["mod"], sf["j"]
+    else:
+        unlocked = [i for i in range(len(CURRICULUM)) if is_unlocked(i)] or [0]
+        rng = random.Random(date.today().toordinal())
+        mod_i = rng.choice(unlocked)
+        j = rng.randrange(len(CURRICULUM[mod_i]["esercizi"]))
+        s["sfida"] = {"date": today, "mod": mod_i, "j": j}
+        persist()
+    return mod_i, j, f"{CURRICULUM[mod_i]['id']}_{j}"
+
+
+def render_sfida_banner():
+    """Banner 'Sfida del giorno' in cima alla mappa."""
+    mod_i, j, eid = sfida_del_giorno()
+    s = st.session_state.save
+    m = CURRICULUM[mod_i]
+    fatto = eid in s["completati"]
+    today = str(date.today())
+
+    # Bonus una tantum quando la sfida risulta completata.
+    if fatto and s.get("sfida_bonus_date") != today:
+        award_xp(SFIDA_BONUS, "sfida del giorno")
+        s["sfida_bonus_date"] = today
+        persist()
+        st.toast(f"🌟 Sfida del giorno! +{SFIDA_BONUS} XP", icon="🌟")
+
+    if fatto:
+        st.success(f"🌟 **Sfida del giorno completata!**  {m['icon']} {m['title']} · +{SFIDA_BONUS} XP")
+    else:
+        testo = re.sub(r"[*`🏆🔍⚡]", "", m["esercizi"][j].get("testo", "")).strip()
+        snippet = (testo[:90] + "…") if len(testo) > 90 else testo
+        st.markdown(f"""
+<div style="background:rgba(245,158,11,0.10);border:1px solid #f59e0b;border-radius:12px;
+            padding:14px 18px;margin-bottom:12px;">
+  <div style="font-size:0.8rem;color:#f59e0b;font-weight:700;">🌟 SFIDA DEL GIORNO · +{SFIDA_BONUS} XP</div>
+  <div style="color:#e2e8f0;margin-top:4px;">{m['icon']} <b>{m['title']}</b> — {snippet}</div>
+</div>""", unsafe_allow_html=True)
+        if st.button(f"🌟 Vai alla sfida (+{SFIDA_BONUS} XP)", key="sfida_go", use_container_width=True):
+            st.session_state.modulo_idx = mod_i
+            st.session_state.view = "study"
+            st.rerun()
+
+
 def render_map():
     st.markdown("# 🗺️ Mappa del Mondo")
+    render_sfida_banner()
     st.markdown("Completa ogni modulo per sbloccare il successivo.")
     due_eids = set(exercises_due_today())
 
