@@ -1148,6 +1148,16 @@ def soluzione_completa(m, j, ex):
     oppure l'hint se è già un programma completo. None se non disponibile."""
     return _load_soluzioni().get(f"{m['id']}#{j}") or ex.get("hint")
 
+@st.cache_data
+def _load_criteri():
+    """Descrizioni in italiano del criterio di successo (chiave 'modulo#idx')."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "criteri.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
 def render_study(idx):
     m = CURRICULUM[idx]
     done_n, tot = module_progress(idx)
@@ -1336,6 +1346,16 @@ def render_study(idx):
                     st.info("📅 Questo esercizio è in scadenza per ripasso oggi!")
 
                 st.info(ex["testo"])
+
+                # Criterio di verifica (come un mini-test): cosa deve fare l'output.
+                criterio = _load_criteri().get(f"{m['id']}#{j}")
+                with st.expander("🧪 Come viene valutato"):
+                    if criterio:
+                        st.caption(f"✓ {criterio}")
+                    else:
+                        st.caption("✓ Il tuo codice viene eseguito e l'output confrontato "
+                                   "con la condizione di successo dell'esercizio. Premi "
+                                   "Esegui per verificare.")
 
                 attempts = s["attempts"].get(eid, 0)
                 if attempts > 0:
