@@ -3180,7 +3180,7 @@ istanza["stato"] = "running" # aggiunge chiave
                     '    totale =+ s["costo"]               # BUG 2\n'
                     'print(f"Totale: ${totale}")\n'
                 ),
-                "check": lambda out, err, vs: err is None and "EC2" in out.strip() and "175" in _ol(out),
+                "check": lambda out, err, vs: err is None and "EC2" in out.strip() and "175" in out,
                 "feedback": lambda out, err: "BUG 1: `s[nome]` → `s['nome']` (mancano le virgolette). BUG 2: `=+` non esiste → usa `+=`",
                 "hint": "Correggi: `s['nome']` e `totale += s['costo']`",
                 "xp_bonus": 0,
@@ -3188,7 +3188,7 @@ istanza["stato"] = "running" # aggiunge chiave
             {
                 "testo": "🏆 **BOSS**: Usa una **list comprehension** per ottenere i quadrati dei numeri pari da 1 a 10. Stampa il risultato.",
                 "placeholder": "numeri = list(range(1, 11))\nquadrati_pari = [...]  # una riga sola\nprint(quadrati_pari)",
-                "check": lambda out, err, vs: err is None and {"4","16","36","64","100"}.issubset(_ol(out)),
+                "check": lambda out, err, vs: err is None and all(s in out for s in ["4","16","36","64","100"]),
                 "feedback": lambda out, err: "Formato: `[x**2 for x in numeri if x % 2 == 0]`",
                 "hint": "[x**2 for x in numeri if x % 2 == 0]",
                 "xp_bonus": 15,
@@ -5416,7 +5416,7 @@ totale = sum(b["size_gb"] * 0.023 for b in buckets)
             {
                 "testo": 'Con `numeri = [1,2,3,4,5,6,7,8,9,10]`, usa una list comprehension per ottenere solo i dispari.',
                 "placeholder": 'numeri = [1,2,3,4,5,6,7,8,9,10]\ndispari = [...]\nprint(dispari)',
-                "check": lambda out, err, vs: err is None and {"1","3","5","7","9"}.issubset(_ol(out)) and not {"2","4","6","8","10"} & _ol(out),
+                "check": lambda out, err, vs: err is None and all(s in out for s in ["1","3","5","7","9"]) and not any(s in out for s in ["2","4","6","8","10"]),
                 "feedback": lambda out, err: "[x for x in numeri if x % 2 != 0]",
                 "hint": "[x for x in numeri if x % 2 != 0]",
                 "xp_bonus": 0,
@@ -5461,7 +5461,7 @@ totale = sum(b["size_gb"] * 0.023 for b in buckets)
                     'quadrati = [if x > 0: x**2 for x in numeri]  # BUG 1\n'
                     'print(quadraati)                               # BUG 2'
                 ),
-                "check": lambda out, err, vs: err is None and {"4","16","36"}.issubset(_ol(out)),
+                "check": lambda out, err, vs: err is None and all(s in out for s in ["4","16","36"]),
                 "feedback": lambda out, err: "BUG 1: `[x**2 for x in numeri if x > 0]` — il `if` va DOPO il `for`. BUG 2: typo `quadraati`",
                 "hint": "[x**2 for x in numeri if x > 0]",
                 "xp_bonus": 0,
