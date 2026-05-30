@@ -5718,6 +5718,733 @@ for res in ec2.describe_instances()["Reservations"]:
             },
         ],
     },
+
+    # ═══════════════════════════════════════════════════════════════════
+    # FASE 4 — CODICE PROFESSIONALE
+    # ═══════════════════════════════════════════════════════════════════
+    {
+        "id": "type_hints", "title": "Type Hints & Annotazioni",
+        "icon": "🏷️", "world": "🏢 Distretto del Codice Pulito",
+        "teoria": """
+### Type hints: dichiarare i tipi
+Python non ti *obbliga* a dichiarare i tipi, ma puoi **annotarli** per rendere il codice leggibile e far lavorare l'editor per te.
+
+```python
+def saluta(nome: str, volte: int = 1) -> str:
+    return f"Ciao {nome}! " * volte
+
+eta: int = 28
+prezzi: list[float] = [1.5, 2.0]
+utente: dict[str, int] = {"eta": 28}
+```
+
+- `nome: str` → il parametro è una stringa
+- `-> str` → la funzione restituisce una stringa
+- `int | None` → o un intero o `None` (opzionale)
+
+**Importante:** le annotazioni **non sono controllate a runtime** — sono documentazione + aiuto per l'IDE e per `mypy`. Passare il tipo sbagliato non solleva errori da solo.
+""",
+        "esempio": 'def area(base: float, altezza: float) -> float:\n    return base * altezza / 2\n\nrisultato: float = area(10, 4)\nprint(f"Area: {risultato}")',
+        "esercizi": [
+            {
+                "testo": "Scrivi una funzione tipizzata `somma(a: int, b: int) -> int` che restituisce la somma. Stampa `somma(3, 4)`.",
+                "placeholder": "def somma(a: int, b: int) -> int:\n    pass\n\nprint(somma(3, 4))",
+                "check": lambda out, err, vs: err is None and "7" in _ol(out),
+                "feedback": lambda out, err: "Il corpo deve fare `return a + b`, poi `print(somma(3, 4))`.",
+                "hint": "def somma(a: int, b: int) -> int:\n    return a + b\n\nprint(somma(3, 4))",
+                "xp_bonus": 0,
+            },
+            {
+                "testo": "Scrivi `primi_n(n: int) -> list[int]` che restituisce la lista `[0, 1, ..., n-1]`. Stampa `primi_n(4)`.",
+                "placeholder": "def primi_n(n: int) -> list[int]:\n    pass\n\nprint(primi_n(4))",
+                "check": lambda out, err, vs: err is None and "[0, 1, 2, 3]" in out,
+                "feedback": lambda out, err: "Usa `return list(range(n))`.",
+                "hint": "def primi_n(n: int) -> list[int]:\n    return list(range(n))\n\nprint(primi_n(4))",
+                "xp_bonus": 10,
+            },
+            {
+                "tipo": "predict",
+                "testo": "🔍 **PREVEDI**: le annotazioni sono controllate a runtime? Cosa stampa?",
+                "codice": 'def doppio(n: int) -> int:\n    return n * 2\n\nprint(doppio("ab"))\n',
+                "expected": "abab",
+                "hint": "Le annotazioni NON sono enforce a runtime: `n` riceve la stringa 'ab', e `'ab' * 2` è 'abab'. Python non si lamenta del tipo.",
+                "xp_bonus": 5,
+            },
+            {
+                "testo": "🏆 **BOSS**: Scrivi `trova(d: dict[str, int], chiave: str) -> int | None` che restituisce il valore o `None`. Stampa `trova({'a': 1}, 'x')`.",
+                "placeholder": "def trova(d: dict[str, int], chiave: str) -> int | None:\n    pass\n\nprint(trova({'a': 1}, 'x'))",
+                "check": lambda out, err, vs: err is None and out.strip() == "None",
+                "feedback": lambda out, err: "Usa `return d.get(chiave)` — `dict.get` restituisce `None` se la chiave manca.",
+                "hint": "def trova(d: dict[str, int], chiave: str) -> int | None:\n    return d.get(chiave)\n\nprint(trova({'a': 1}, 'x'))",
+                "xp_bonus": 15,
+            },
+        ],
+    },
+    {
+        "id": "testing", "title": "Testing (assert & pytest)",
+        "icon": "✅", "world": "🧪 Laboratorio dei Test",
+        "teoria": """
+### Testare il codice
+Un test verifica che il codice faccia quello che deve. Il mattone base è `assert`:
+
+```python
+def somma(a, b):
+    return a + b
+
+assert somma(2, 3) == 5          # passa in silenzio
+assert somma(2, 3) == 99, "ops"  # solleva AssertionError: ops
+```
+
+Se l'assert è vero, non succede niente. Se è falso → **AssertionError**.
+
+**pytest** è lo strumento standard: scrivi funzioni che iniziano con `test_` e le lanci da terminale:
+```python
+# test_calc.py
+def test_somma():
+    assert somma(2, 3) == 5
+```
+```bash
+pytest        # trova ed esegue tutti i test_*
+```
+
+**Pattern AAA**: *Arrange* (prepara) → *Act* (esegui) → *Assert* (verifica).
+""",
+        "esempio": 'def is_pari(n):\n    return n % 2 == 0\n\nassert is_pari(4) is True\nassert is_pari(7) is False\nprint("Tutti i test passati!")',
+        "esercizi": [
+            {
+                "testo": "Scrivi `triplo(n)` che restituisce `n*3`. Poi un `assert` che verifica `triplo(5) == 15` e stampa `OK`.",
+                "placeholder": "def triplo(n):\n    pass\n\n# assert + print('OK')",
+                "check": lambda out, err, vs: err is None and "OK" in out,
+                "feedback": lambda out, err: "Se l'assert passa, il codice continua fino al print. Se va in AssertionError, controlla la funzione.",
+                "hint": "def triplo(n):\n    return n * 3\n\nassert triplo(5) == 15\nprint('OK')",
+                "xp_bonus": 0,
+            },
+            {
+                "testo": "Scrivi `dividi(a, b)` che restituisce `a/b`. Aggiungi `assert dividi(10, 2) == 5, 'errore'` e stampa `Test passato`.",
+                "placeholder": "def dividi(a, b):\n    pass\n\n# assert con messaggio + print",
+                "check": lambda out, err, vs: err is None and "Test passato" in out,
+                "feedback": lambda out, err: "`return a / b`, poi l'assert con la virgola e il messaggio, poi il print.",
+                "hint": "def dividi(a, b):\n    return a / b\n\nassert dividi(10, 2) == 5, 'errore'\nprint('Test passato')",
+                "xp_bonus": 10,
+            },
+            {
+                "tipo": "predict",
+                "testo": "🔍 **PREVEDI**: Cosa stampa? Gli assert passano?",
+                "codice": "def maggiore(a, b):\n    return a if a > b else b\n\nassert maggiore(3, 8) == 8\nassert maggiore(10, 2) == 10\nprint('verde')\n",
+                "expected": "verde",
+                "hint": "Entrambi gli assert sono veri (8 e 10), quindi non sollevano nulla e si arriva al print: 'verde'.",
+                "xp_bonus": 5,
+            },
+            {
+                "testo": "🏆 **BOSS**: Scrivi `valida_eta(e)` → `True` se `0 <= e <= 120`, altrimenti `False`. Verifica con 3 assert (valido, negativo, troppo grande) e stampa `3/3`.",
+                "placeholder": "def valida_eta(e):\n    pass\n\n# 3 assert + print('3/3')",
+                "check": lambda out, err, vs: err is None and "3/3" in out,
+                "feedback": lambda out, err: "`return 0 <= e <= 120`. Poi assert su 30 (True), -5 (False), 200 (False).",
+                "hint": "def valida_eta(e):\n    return 0 <= e <= 120\n\nassert valida_eta(30) is True\nassert valida_eta(-5) is False\nassert valida_eta(200) is False\nprint('3/3')",
+                "xp_bonus": 15,
+            },
+        ],
+    },
+    {
+        "id": "logging", "title": "Logging",
+        "icon": "📜", "world": "📜 Sala dei Registri",
+        "teoria": """
+### Logging invece di print
+`print` va bene per giocare, ma nel codice vero si usa **logging**: puoi filtrare per importanza, aggiungere timestamp, scrivere su file — senza toccare il codice.
+
+**Livelli** (dal meno al più grave): `DEBUG` < `INFO` < `WARNING` < `ERROR` < `CRITICAL`.
+
+```python
+import logging, sys
+logging.basicConfig(level=logging.INFO, stream=sys.stdout,
+                    format="%(levelname)s: %(message)s")
+
+logging.debug("dettaglio")     # NON appare (sotto INFO)
+logging.info("avvio")          # INFO: avvio
+logging.warning("memoria 80%") # WARNING: memoria 80%
+```
+
+`level=logging.INFO` → mostra da INFO in su; il `DEBUG` viene filtrato.
+
+(Qui usiamo `stream=sys.stdout` per vedere l'output; di default il logging va su *stderr*.)
+""",
+        "esempio": 'import logging, sys\nlogging.basicConfig(level=logging.INFO, stream=sys.stdout, format="%(levelname)s: %(message)s")\nlogging.info("Server avviato")\nlogging.warning("Disco quasi pieno")',
+        "esercizi": [
+            {
+                "testo": "Configura il logging su stdout a livello INFO e registra un messaggio INFO `Deploy completato`.",
+                "placeholder": 'import logging, sys\nlogging.basicConfig(level=logging.INFO, stream=sys.stdout, format="%(levelname)s: %(message)s")\n# logga qui',
+                "check": lambda out, err, vs: err is None and "Deploy completato" in out and "INFO" in out,
+                "feedback": lambda out, err: "Dopo basicConfig usa `logging.info('Deploy completato')`.",
+                "hint": 'import logging, sys\nlogging.basicConfig(level=logging.INFO, stream=sys.stdout, format="%(levelname)s: %(message)s")\nlogging.info("Deploy completato")',
+                "xp_bonus": 0,
+            },
+            {
+                "testo": "Imposta il livello a `WARNING`. Logga un `info()` (NON deve apparire) e un `warning('Attenzione')`. Solo il warning deve uscire.",
+                "placeholder": 'import logging, sys\nlogging.basicConfig(level=logging.WARNING, stream=sys.stdout, format="%(levelname)s: %(message)s")\n# un info e un warning',
+                "check": lambda out, err, vs: err is None and "Attenzione" in out and "INFO" not in out,
+                "feedback": lambda out, err: "Con level=WARNING, `logging.info(...)` è filtrato. Solo `logging.warning('Attenzione')` appare.",
+                "hint": 'import logging, sys\nlogging.basicConfig(level=logging.WARNING, stream=sys.stdout, format="%(levelname)s: %(message)s")\nlogging.info("non si vede")\nlogging.warning("Attenzione")',
+                "xp_bonus": 10,
+            },
+            {
+                "tipo": "predict",
+                "testo": "🔍 **PREVEDI**: Quali righe appaiono in output?",
+                "codice": 'import logging, sys\nlogging.basicConfig(level=logging.WARNING, stream=sys.stdout, format="%(levelname)s:%(message)s")\nlogging.info("a")\nlogging.warning("b")\nlogging.error("c")\n',
+                "expected": "WARNING:b\nERROR:c",
+                "hint": "Il livello è WARNING: `info('a')` è sotto soglia e sparisce. Restano warning ('b') ed error ('c').",
+                "xp_bonus": 5,
+            },
+            {
+                "testo": "🏆 **BOSS**: Logga un `ERROR` che include una variabile: `bucket = 'logs'` e registra `Connessione fallita al bucket logs` con una f-string.",
+                "placeholder": 'import logging, sys\nlogging.basicConfig(level=logging.INFO, stream=sys.stdout, format="%(levelname)s: %(message)s")\nbucket = "logs"\n# logga un error con f-string',
+                "check": lambda out, err, vs: err is None and "ERROR" in out and "bucket logs" in out,
+                "feedback": lambda out, err: 'Usa `logging.error(f"Connessione fallita al bucket {bucket}")`.',
+                "hint": 'import logging, sys\nlogging.basicConfig(level=logging.INFO, stream=sys.stdout, format="%(levelname)s: %(message)s")\nbucket = "logs"\nlogging.error(f"Connessione fallita al bucket {bucket}")',
+                "xp_bonus": 15,
+            },
+        ],
+    },
+    {
+        "id": "stdlib_pro", "title": "Standard Library (collections, itertools, functools)",
+        "icon": "🧰", "world": "🧰 Magazzino degli Strumenti",
+        "teoria": """
+### Gli strumenti già pronti
+La *standard library* ti regala strutture e funzioni che non devi reinventare.
+
+**collections**
+```python
+from collections import Counter, defaultdict
+Counter("aws s3 aws".split())            # Counter({'aws': 2, 's3': 1})
+d = defaultdict(list); d["x"].append(1)  # niente KeyError
+```
+
+**itertools**
+```python
+import itertools
+list(itertools.chain([1, 2], [3, 4]))    # [1, 2, 3, 4]
+```
+
+**functools**
+```python
+from functools import reduce, lru_cache
+reduce(lambda a, b: a + b, [1, 2, 3, 4])  # 10
+@lru_cache
+def fib(n): ...                            # memoizza i risultati
+```
+""",
+        "esempio": 'from collections import Counter\nparole = "aws s3 aws ec2 s3 aws".split()\nc = Counter(parole)\nprint(c["aws"])\nprint(c.most_common(1))',
+        "esercizi": [
+            {
+                "testo": "Usa `Counter` per contare le lettere di `'mississippi'` e stampa quante volte appare `'s'`.",
+                "placeholder": "from collections import Counter\n# conta e stampa il numero di 's'",
+                "check": lambda out, err, vs: err is None and "4" in _ol(out),
+                "feedback": lambda out, err: "`Counter('mississippi')['s']` vale 4.",
+                "hint": "from collections import Counter\nc = Counter('mississippi')\nprint(c['s'])",
+                "xp_bonus": 0,
+            },
+            {
+                "testo": "Usa `defaultdict(list)` per raggruppare `['ec2', 'eip', 's3', 'sqs']` per lettera iniziale. Stampa la lista sotto la chiave `'s'`.",
+                "placeholder": "from collections import defaultdict\nservizi = ['ec2', 'eip', 's3', 'sqs']\ngruppi = defaultdict(list)\n# raggruppa e stampa gruppi['s']",
+                "check": lambda out, err, vs: err is None and "['s3', 'sqs']" in out,
+                "feedback": lambda out, err: "Cicla i servizi e fai `gruppi[s[0]].append(s)`, poi `print(gruppi['s'])`.",
+                "hint": "from collections import defaultdict\nservizi = ['ec2', 'eip', 's3', 'sqs']\ngruppi = defaultdict(list)\nfor s in servizi:\n    gruppi[s[0]].append(s)\nprint(gruppi['s'])",
+                "xp_bonus": 10,
+            },
+            {
+                "testo": "Usa `functools.reduce` per calcolare il prodotto di `[1, 2, 3, 4, 5]` e stampalo.",
+                "placeholder": "from functools import reduce\n# prodotto di 1..5 e stampa",
+                "check": lambda out, err, vs: err is None and "120" in _ol(out),
+                "feedback": lambda out, err: "`reduce(lambda a, b: a * b, [1,2,3,4,5])` vale 120.",
+                "hint": "from functools import reduce\nprint(reduce(lambda a, b: a * b, [1, 2, 3, 4, 5]))",
+                "xp_bonus": 10,
+            },
+            {
+                "tipo": "predict",
+                "testo": "🔍 **PREVEDI**: Cosa stampa?",
+                "codice": "import itertools\nr = itertools.chain([1, 2], [3, 4], [5])\nprint(list(r))\n",
+                "expected": "[1, 2, 3, 4, 5]",
+                "hint": "`chain` concatena gli iterabili uno dopo l'altro: [1,2] + [3,4] + [5] → [1, 2, 3, 4, 5].",
+                "xp_bonus": 5,
+            },
+        ],
+    },
+
+    # ═══════════════════════════════════════════════════════════════════
+    # FASE 5 — IL MONDO REALE
+    # ═══════════════════════════════════════════════════════════════════
+    {
+        "id": "regex", "title": "Espressioni Regolari (re)",
+        "icon": "🔎", "world": "🔎 Sala dei Pattern",
+        "teoria": """
+### Cercare pattern nel testo
+Le *regex* descrivono un pattern e lo cercano in una stringa. Modulo: `re`.
+
+```python
+import re
+re.findall(r"\\d+", "ho 3 mele e 12 pere")   # ['3', '12']  tutti i numeri
+re.search(r"@(.+)", "a@b.com").group(1)       # 'b.com'      primo match + gruppo
+re.sub(r"\\d", "X", "id 42")                   # 'id XX'      sostituzione
+```
+
+**Mattoni:** `\\d` cifra · `\\w` lettera/cifra · `.` qualsiasi · `+` uno o più · `*` zero o più · `()` gruppo da catturare.
+""",
+        "esempio": 'import re\ntesto = "Errore alle 14:30 e 09:05"\norari = re.findall(r"\\d{2}:\\d{2}", testo)\nprint(orari)',
+        "esercizi": [
+            {
+                "testo": "Usa `re.findall` per estrarre tutti i numeri da `'ho 3 istanze e 12 volumi'`. Stampa la lista.",
+                "placeholder": 'import re\ntesto = "ho 3 istanze e 12 volumi"\n# findall dei numeri e stampa',
+                "check": lambda out, err, vs: err is None and "['3', '12']" in out,
+                "feedback": lambda out, err: "Usa `re.findall(r'\\\\d+', testo)`.",
+                "hint": 'import re\ntesto = "ho 3 istanze e 12 volumi"\nprint(re.findall(r"\\d+", testo))',
+                "xp_bonus": 0,
+            },
+            {
+                "testo": "Estrai il dominio da `'lorenzo@aws.com'` (tutto ciò che segue la `@`) con `re.search` e un gruppo. Stampa `aws.com`.",
+                "placeholder": 'import re\nemail = "lorenzo@aws.com"\n# search con gruppo (.+) dopo @',
+                "check": lambda out, err, vs: err is None and out.strip() == "aws.com",
+                "feedback": lambda out, err: "Usa `re.search(r'@(.+)', email).group(1)`.",
+                "hint": 'import re\nemail = "lorenzo@aws.com"\nprint(re.search(r"@(.+)", email).group(1))',
+                "xp_bonus": 10,
+            },
+            {
+                "tipo": "predict",
+                "testo": "🔍 **PREVEDI**: Cosa restituisce findall con due gruppi?",
+                "codice": 'import re\nprint(re.findall(r"(\\d+)-(\\d+)", "1-2 3-4"))\n',
+                "expected": "[('1', '2'), ('3', '4')]",
+                "hint": "Con più gruppi, `findall` restituisce una lista di tuple: una tupla per ogni match, un elemento per gruppo.",
+                "xp_bonus": 5,
+            },
+            {
+                "testo": "🏆 **BOSS**: Maschera tutte le cifre di `'id 4521'` con `X` usando `re.sub`. Stampa `id XXXX`.",
+                "placeholder": 'import re\ntesto = "id 4521"\n# sostituisci ogni cifra con X',
+                "check": lambda out, err, vs: err is None and "id XXXX" in out,
+                "feedback": lambda out, err: "Usa `re.sub(r'\\\\d', 'X', testo)`.",
+                "hint": 'import re\ntesto = "id 4521"\nprint(re.sub(r"\\d", "X", testo))',
+                "xp_bonus": 15,
+            },
+        ],
+    },
+    {
+        "id": "pathlib_mod", "title": "Pathlib — percorsi moderni",
+        "icon": "🗺️", "world": "🗺️ Cartografia dei File",
+        "teoria": """
+### Gestire i percorsi con pathlib
+`pathlib.Path` rende i percorsi oggetti, non stringhe da concatenare a mano.
+
+```python
+from pathlib import Path
+p = Path("/home/lore/dati/report.csv")
+p.name      # 'report.csv'   nome file
+p.stem      # 'report'       senza estensione
+p.suffix    # '.csv'         estensione
+p.parent    # /home/lore/dati
+Path("data") / "raw" / "f.json"   # data/raw/f.json  (operatore /)
+p.with_suffix(".txt")             # report.txt
+```
+
+Niente più `"a/" + "b/" + "c"`: usi `/` e funziona su ogni sistema.
+""",
+        "esempio": 'from pathlib import Path\np = Path("/home/lore/dati/report.csv")\nprint(p.name)\nprint(p.stem)\nprint(p.suffix)\nprint(p.parent)',
+        "esercizi": [
+            {
+                "testo": "Crea `Path('backup/logs/app.log')` e stampa solo il nome del file (`app.log`).",
+                "placeholder": "from pathlib import Path\np = Path('backup/logs/app.log')\n# stampa il nome del file",
+                "check": lambda out, err, vs: err is None and out.strip() == "app.log",
+                "feedback": lambda out, err: "Usa `p.name`.",
+                "hint": "from pathlib import Path\np = Path('backup/logs/app.log')\nprint(p.name)",
+                "xp_bonus": 0,
+            },
+            {
+                "testo": "Costruisci con l'operatore `/` il percorso `data/raw/file.json` partendo da `Path('data')`. Stampalo.",
+                "placeholder": "from pathlib import Path\n# Path('data') / ... / ...",
+                "check": lambda out, err, vs: err is None and "data/raw/file.json" in out,
+                "feedback": lambda out, err: "Usa `Path('data') / 'raw' / 'file.json'`.",
+                "hint": "from pathlib import Path\np = Path('data') / 'raw' / 'file.json'\nprint(p)",
+                "xp_bonus": 10,
+            },
+            {
+                "tipo": "predict",
+                "testo": "🔍 **PREVEDI**: Cosa stampano `.suffix` e `.stem` su un doppio suffisso?",
+                "codice": 'from pathlib import Path\np = Path("archivio.tar.gz")\nprint(p.suffix)\nprint(p.stem)\n',
+                "expected": ".gz\narchivio.tar",
+                "hint": "`.suffix` prende solo l'ultima estensione (`.gz`); `.stem` toglie solo quella (`archivio.tar`).",
+                "xp_bonus": 5,
+            },
+            {
+                "testo": "🏆 **BOSS**: Cambia l'estensione di `Path('report.txt')` in `.md` con `with_suffix` e stampa `report.md`.",
+                "placeholder": "from pathlib import Path\np = Path('report.txt')\n# cambia estensione e stampa",
+                "check": lambda out, err, vs: err is None and "report.md" in out,
+                "feedback": lambda out, err: "Usa `p.with_suffix('.md')`.",
+                "hint": "from pathlib import Path\np = Path('report.txt')\nprint(p.with_suffix('.md'))",
+                "xp_bonus": 15,
+            },
+        ],
+    },
+    {
+        "id": "context_manager", "title": "Context Manager (with)",
+        "icon": "🚪", "world": "🚪 Soglia delle Risorse",
+        "teoria": """
+### `with`: apri e chiudi in sicurezza
+Un *context manager* garantisce la pulizia (chiusura file, connessioni) anche se qualcosa va storto.
+
+```python
+with open("f.txt") as f:   # f viene chiuso da solo all'uscita
+    dati = f.read()
+```
+
+Puoi crearne uno con una classe (`__enter__` / `__exit__`):
+```python
+class Sessione:
+    def __enter__(self):
+        print("apro"); return self
+    def __exit__(self, *args):
+        print("chiudo")
+
+with Sessione():
+    print("uso")   # → apro / uso / chiudo
+```
+
+O con `@contextmanager` di `contextlib` (più conciso, con `yield`).
+""",
+        "esempio": 'from contextlib import contextmanager\n\n@contextmanager\ndef tag(nome):\n    print(f"<{nome}>")\n    yield\n    print(f"</{nome}>")\n\nwith tag("p"):\n    print("ciao")',
+        "esercizi": [
+            {
+                "testo": "Crea una classe `Sessione` con `__enter__` che stampa `apro` e `__exit__` che stampa `chiudo`. Usala con un `with` che stampa `uso`.",
+                "placeholder": "class Sessione:\n    def __enter__(self):\n        pass\n    def __exit__(self, *args):\n        pass\n\n# with Sessione(): ...",
+                "check": lambda out, err, vs: err is None and "apro" in out and "uso" in out and "chiudo" in out and out.index("apro") < out.index("uso") < out.index("chiudo"),
+                "feedback": lambda out, err: "`__enter__` deve `return self` e stampare 'apro'; `__exit__` stampa 'chiudo'. Dentro il with: print('uso').",
+                "hint": "class Sessione:\n    def __enter__(self):\n        print('apro')\n        return self\n    def __exit__(self, *args):\n        print('chiudo')\n\nwith Sessione():\n    print('uso')",
+                "xp_bonus": 10,
+            },
+            {
+                "tipo": "predict",
+                "testo": "🔍 **PREVEDI**: In che ordine vengono stampate le righe?",
+                "codice": 'class CM:\n    def __enter__(self):\n        print("A")\n        return self\n    def __exit__(self, *a):\n        print("C")\n\nwith CM():\n    print("B")\n',
+                "expected": "A\nB\nC",
+                "hint": "`__enter__` (A) gira all'ingresso, poi il corpo del with (B), infine `__exit__` (C) all'uscita.",
+                "xp_bonus": 5,
+            },
+            {
+                "testo": "Usa `@contextmanager` per creare `blocco()` che stampa `--inizio--`, poi `yield`, poi `--fine--`. Usalo con un `with` che stampa `dentro`.",
+                "placeholder": "from contextlib import contextmanager\n\n@contextmanager\ndef blocco():\n    pass\n\n# with blocco(): print('dentro')",
+                "check": lambda out, err, vs: err is None and "--inizio--" in out and "dentro" in out and "--fine--" in out and out.index("--inizio--") < out.index("--fine--"),
+                "feedback": lambda out, err: "Prima del `yield` stampa '--inizio--', dopo stampa '--fine--'.",
+                "hint": "from contextlib import contextmanager\n\n@contextmanager\ndef blocco():\n    print('--inizio--')\n    yield\n    print('--fine--')\n\nwith blocco():\n    print('dentro')",
+                "xp_bonus": 10,
+            },
+            {
+                "testo": "🏆 **BOSS**: Crea un CM `Contatore` con metodo `conta()`; `__exit__` stampa `totale: N`. Chiama `conta()` 3 volte e ottieni `totale: 3`.",
+                "placeholder": "class Contatore:\n    def __enter__(self):\n        self.n = 0\n        return self\n    def conta(self):\n        pass\n    def __exit__(self, *args):\n        pass\n\n# with Contatore() as c: ...",
+                "check": lambda out, err, vs: err is None and "totale: 3" in out,
+                "feedback": lambda out, err: "`conta` fa `self.n += 1`; `__exit__` stampa `f'totale: {self.n}'`.",
+                "hint": "class Contatore:\n    def __enter__(self):\n        self.n = 0\n        return self\n    def conta(self):\n        self.n += 1\n    def __exit__(self, *args):\n        print(f'totale: {self.n}')\n\nwith Contatore() as c:\n    c.conta()\n    c.conta()\n    c.conta()",
+                "xp_bonus": 15,
+            },
+        ],
+    },
+    {
+        "id": "sqlite_mod", "title": "Database con SQLite",
+        "icon": "🗄️", "world": "🗄️ Archivio SQL",
+        "teoria": """
+### Un database vero, incluso in Python
+`sqlite3` è nella standard library: un DB SQL completo, anche solo in memoria.
+
+```python
+import sqlite3
+con = sqlite3.connect(":memory:")   # DB in RAM (o un file: "dati.db")
+cur = con.cursor()
+cur.execute("CREATE TABLE servizi (nome TEXT, costo REAL)")
+cur.execute("INSERT INTO servizi VALUES ('ec2', 0.5)")
+cur.executemany("INSERT INTO servizi VALUES (?, ?)", [("s3", 0.02), ("rds", 0.9)])
+
+for riga in cur.execute("SELECT * FROM servizi WHERE costo > 0.1"):
+    print(riga)
+print(cur.execute("SELECT COUNT(*) FROM servizi").fetchone()[0])
+```
+
+`?` sono **placeholder** sicuri (mai concatenare valori nelle query!). `fetchone()`/`fetchall()` leggono i risultati.
+""",
+        "esempio": 'import sqlite3\ncon = sqlite3.connect(":memory:")\ncur = con.cursor()\ncur.execute("CREATE TABLE t (nome TEXT)")\ncur.execute("INSERT INTO t VALUES (\'ec2\')")\nfor r in cur.execute("SELECT nome FROM t"):\n    print(r[0])',
+        "esercizi": [
+            {
+                "testo": "Crea una tabella `t(nome TEXT)`, inserisci `'ec2'`, poi leggi e stampa il nome (`ec2`).",
+                "placeholder": 'import sqlite3\ncon = sqlite3.connect(":memory:")\ncur = con.cursor()\n# crea, inserisci, seleziona, stampa',
+                "check": lambda out, err, vs: err is None and "ec2" in out,
+                "feedback": lambda out, err: "CREATE TABLE, INSERT, poi `for r in cur.execute('SELECT nome FROM t'): print(r[0])`.",
+                "hint": 'import sqlite3\ncon = sqlite3.connect(":memory:")\ncur = con.cursor()\ncur.execute("CREATE TABLE t (nome TEXT)")\ncur.execute("INSERT INTO t VALUES (\'ec2\')")\nfor r in cur.execute("SELECT nome FROM t"):\n    print(r[0])',
+                "xp_bonus": 0,
+            },
+            {
+                "testo": "Inserisci i numeri `1, 2, 3` con `executemany` e stampa quante righe ci sono con `SELECT COUNT(*)`.",
+                "placeholder": 'import sqlite3\ncon = sqlite3.connect(":memory:")\ncur = con.cursor()\ncur.execute("CREATE TABLE t (x INTEGER)")\n# executemany + COUNT(*)',
+                "check": lambda out, err, vs: err is None and "3" in _ol(out),
+                "feedback": lambda out, err: "`cur.executemany('INSERT INTO t VALUES (?)', [(1,), (2,), (3,)])`, poi `print(cur.execute('SELECT COUNT(*) FROM t').fetchone()[0])`.",
+                "hint": 'import sqlite3\ncon = sqlite3.connect(":memory:")\ncur = con.cursor()\ncur.execute("CREATE TABLE t (x INTEGER)")\ncur.executemany("INSERT INTO t VALUES (?)", [(1,), (2,), (3,)])\nprint(cur.execute("SELECT COUNT(*) FROM t").fetchone()[0])',
+                "xp_bonus": 10,
+            },
+            {
+                "tipo": "predict",
+                "testo": "🔍 **PREVEDI**: Cosa stampa la query con WHERE?",
+                "codice": 'import sqlite3\ncon = sqlite3.connect(":memory:")\ncur = con.cursor()\ncur.execute("CREATE TABLE s (nome TEXT, costo REAL)")\ncur.executemany("INSERT INTO s VALUES (?, ?)", [("ec2", 5.0), ("s3", 0.5)])\nprint(cur.execute("SELECT nome FROM s WHERE costo > 1").fetchall())\n',
+                "expected": "[('ec2',)]",
+                "hint": "Solo 'ec2' ha costo > 1. `fetchall` restituisce una lista di tuple: `[('ec2',)]` (tupla con un solo campo).",
+                "xp_bonus": 5,
+            },
+            {
+                "testo": "🏆 **BOSS**: Inserisci i GB `120, 500, 80` e stampa la somma totale con `SELECT SUM(gb)` (= `700`).",
+                "placeholder": 'import sqlite3\ncon = sqlite3.connect(":memory:")\ncur = con.cursor()\ncur.execute("CREATE TABLE c (gb INTEGER)")\n# inserisci e somma',
+                "check": lambda out, err, vs: err is None and "700" in _ol(out),
+                "feedback": lambda out, err: "executemany con [(120,), (500,), (80,)], poi `SELECT SUM(gb)` e `.fetchone()[0]`.",
+                "hint": 'import sqlite3\ncon = sqlite3.connect(":memory:")\ncur = con.cursor()\ncur.execute("CREATE TABLE c (gb INTEGER)")\ncur.executemany("INSERT INTO c VALUES (?)", [(120,), (500,), (80,)])\nprint(cur.execute("SELECT SUM(gb) FROM c").fetchone()[0])',
+                "xp_bonus": 15,
+            },
+        ],
+    },
+    {
+        "id": "api_http", "title": "API HTTP & JSON (requests)",
+        "icon": "🌐", "world": "🌐 Porto delle API",
+        "teoria": """
+### Parlare con un'API
+Quasi ogni app moderna chiede dati a un server via HTTP. Libreria standard di fatto: `requests`.
+
+```python
+import requests
+r = requests.get("https://api.example.com/istanze")
+print(r.status_code)    # 200 = OK
+dati = r.json()         # converte la risposta JSON in dict/list Python
+print(dati["nome"])
+```
+
+Il cuore non è la chiamata, è **navigare il JSON** che torna (dict e liste annidate).
+Negli esercizi qui sotto **simuliamo** quella risposta con `json.loads(...)` — la struttura è identica a quella che `r.json()` ti darebbe, così impari la parte che conta senza dipendere dalla rete.
+""",
+        "esempio": 'import json\nrisposta = \'{"servizio": "ec2", "stato": "running", "costo": 0.5}\'\ndati = json.loads(risposta)\nprint(dati["stato"])\nprint(dati["costo"])',
+        "esercizi": [
+            {
+                "testo": "Una API ha risposto con `'{\"servizio\": \"ec2\", \"stato\": \"running\"}'`. Convertila e stampa il valore di `stato`.",
+                "placeholder": 'import json\nrisposta = \'{"servizio": "ec2", "stato": "running"}\'\n# json.loads e stampa lo stato',
+                "check": lambda out, err, vs: err is None and out.strip() == "running",
+                "feedback": lambda out, err: "`dati = json.loads(risposta)` poi `print(dati['stato'])`.",
+                "hint": 'import json\nrisposta = \'{"servizio": "ec2", "stato": "running"}\'\ndati = json.loads(risposta)\nprint(dati["stato"])',
+                "xp_bonus": 0,
+            },
+            {
+                "testo": "La risposta `'{\"region\": \"eu-west-1\", \"istanze\": [{\"id\": \"i-1\"}, {\"id\": \"i-2\"}]}'` contiene una lista. Stampa quante istanze ci sono.",
+                "placeholder": 'import json\nrisposta = \'{"region": "eu-west-1", "istanze": [{"id": "i-1"}, {"id": "i-2"}]}\'\n# conta gli elementi di istanze',
+                "check": lambda out, err, vs: err is None and "2" in _ol(out),
+                "feedback": lambda out, err: "`len(dati['istanze'])`.",
+                "hint": 'import json\nrisposta = \'{"region": "eu-west-1", "istanze": [{"id": "i-1"}, {"id": "i-2"}]}\'\ndati = json.loads(risposta)\nprint(len(dati["istanze"]))',
+                "xp_bonus": 10,
+            },
+            {
+                "tipo": "predict",
+                "testo": "🔍 **PREVEDI**: Cosa stampa, navigando il JSON?",
+                "codice": 'import json\nr = json.loads(\'{"items": [10, 20, 30]}\')\nprint(sum(r["items"]))\n',
+                "expected": "60",
+                "hint": "`r['items']` è la lista [10, 20, 30]; `sum(...)` la somma → 60.",
+                "xp_bonus": 5,
+            },
+            {
+                "testo": "🏆 **BOSS**: Dalla risposta `'{\"buckets\": [{\"name\": \"logs\"}, {\"name\": \"data\"}, {\"name\": \"backup\"}]}'` estrai la lista dei soli nomi e stampala (`['logs', 'data', 'backup']`).",
+                "placeholder": 'import json\nrisposta = \'{"buckets": [{"name": "logs"}, {"name": "data"}, {"name": "backup"}]}\'\n# list comprehension sui nomi',
+                "check": lambda out, err, vs: err is None and "['logs', 'data', 'backup']" in out,
+                "feedback": lambda out, err: "`[b['name'] for b in dati['buckets']]`.",
+                "hint": 'import json\nrisposta = \'{"buckets": [{"name": "logs"}, {"name": "data"}, {"name": "backup"}]}\'\ndati = json.loads(risposta)\nprint([b["name"] for b in dati["buckets"]])',
+                "xp_bonus": 15,
+            },
+        ],
+    },
+
+    # ═══════════════════════════════════════════════════════════════════
+    # FASE 6 — AVANZATO
+    # ═══════════════════════════════════════════════════════════════════
+    {
+        "id": "asyncio_mod", "title": "Async / Await (asyncio)",
+        "icon": "⚡", "world": "⚡ Dimensione Asincrona",
+        "teoria": """
+### Fare più cose mentre si aspetta
+`asyncio` serve quando il codice **aspetta** (rete, disco, API): invece di stare fermo, fa altro.
+
+```python
+import asyncio
+
+async def scarica(nome):       # coroutine: definita con async def
+    await asyncio.sleep(0)     # await = "qui posso cedere il controllo"
+    return f"{nome} pronto"
+
+async def main():
+    # gather lancia più coroutine "insieme" e raccoglie i risultati in ordine
+    risultati = await asyncio.gather(scarica("a"), scarica("b"))
+    print(risultati)
+
+asyncio.run(main())            # avvia il loop asincrono
+```
+
+⚠️ Serve per attese **I/O-bound**, non per calcoli pesanti (CPU). `gather` preserva l'ordine dei risultati.
+""",
+        "esempio": 'import asyncio\n\nasync def saluta(nome):\n    await asyncio.sleep(0)\n    return f"Ciao {nome}"\n\nasync def main():\n    print(await saluta("Lorenzo"))\n\nasyncio.run(main())',
+        "esercizi": [
+            {
+                "testo": "Scrivi una coroutine `async def numero()` che ritorna `42`. Eseguila con `asyncio.run(...)` e stampa il risultato.",
+                "placeholder": "import asyncio\n\nasync def numero():\n    pass\n\n# asyncio.run e stampa",
+                "check": lambda out, err, vs: err is None and "42" in _ol(out),
+                "feedback": lambda out, err: "`return 42` nella coroutine, poi `print(asyncio.run(numero()))`.",
+                "hint": "import asyncio\n\nasync def numero():\n    return 42\n\nprint(asyncio.run(numero()))",
+                "xp_bonus": 0,
+            },
+            {
+                "testo": "Usa `asyncio.gather` per eseguire `quadrato(2)`, `quadrato(3)`, `quadrato(4)` insieme e stampa la lista dei risultati (`[4, 9, 16]`).",
+                "placeholder": "import asyncio\n\nasync def quadrato(n):\n    return n * n\n\nasync def main():\n    pass\n\nasyncio.run(main())",
+                "check": lambda out, err, vs: err is None and "[4, 9, 16]" in out,
+                "feedback": lambda out, err: "`risultati = await asyncio.gather(quadrato(2), quadrato(3), quadrato(4))` poi `print(risultati)`.",
+                "hint": "import asyncio\n\nasync def quadrato(n):\n    return n * n\n\nasync def main():\n    risultati = await asyncio.gather(quadrato(2), quadrato(3), quadrato(4))\n    print(risultati)\n\nasyncio.run(main())",
+                "xp_bonus": 10,
+            },
+            {
+                "tipo": "predict",
+                "testo": "🔍 **PREVEDI**: In che ordine vengono stampate le righe?",
+                "codice": 'import asyncio\n\nasync def f():\n    print("dentro")\n    return 1\n\nasync def main():\n    print("prima")\n    await f()\n    print("dopo")\n\nasyncio.run(main())\n',
+                "expected": "prima\ndentro\ndopo",
+                "hint": "`await f()` esegue subito f() (stampa 'dentro') prima di proseguire: prima → dentro → dopo.",
+                "xp_bonus": 5,
+            },
+            {
+                "testo": "🏆 **BOSS**: `async def costo(x)` ritorna `x * 0.5`. Con `gather` calcola costo di 10, 20, 30 e stampa la **somma** dei risultati (`30.0`).",
+                "placeholder": "import asyncio\n\nasync def costo(x):\n    return x * 0.5\n\nasync def main():\n    pass\n\nasyncio.run(main())",
+                "check": lambda out, err, vs: err is None and "30.0" in out,
+                "feedback": lambda out, err: "`valori = await asyncio.gather(costo(10), costo(20), costo(30))` poi `print(sum(valori))`.",
+                "hint": "import asyncio\n\nasync def costo(x):\n    return x * 0.5\n\nasync def main():\n    valori = await asyncio.gather(costo(10), costo(20), costo(30))\n    print(sum(valori))\n\nasyncio.run(main())",
+                "xp_bonus": 15,
+            },
+        ],
+    },
+    {
+        "id": "packaging", "title": "Packaging & Versioning",
+        "icon": "📦", "world": "📦 Cantiere dei Pacchetti",
+        "teoria": """
+### Da script a pacchetto installabile
+Un progetto serio ha una struttura e una versione:
+
+```
+mio_pacchetto/
+├── pyproject.toml      # metadati, dipendenze, versione
+├── src/mio_pacchetto/
+│   ├── __init__.py     # rende la cartella un package
+│   └── core.py
+└── tests/
+```
+```bash
+pip install -e .        # installa in modalità "editabile"
+```
+
+**`if __name__ == "__main__":`** → il codice parte solo se esegui il file direttamente, non se lo importi.
+
+**Semantic Versioning** `MAJOR.MINOR.PATCH` (es. `2.5.1`):
+- `PATCH` → bugfix · `MINOR` → nuove feature compatibili · `MAJOR` → cambi che rompono.
+
+⚠️ Confrontare versioni come **stringhe** è sbagliato (`"1.10" < "1.2"` è True!). Convertile in tuple di interi.
+""",
+        "esempio": 'versione = "2.5.1"\nmajor, minor, patch = versione.split(".")\nprint(f"major={major} minor={minor} patch={patch}")',
+        "esercizi": [
+            {
+                "tipo": "predict",
+                "testo": "🔍 **PREVEDI**: Eseguendo il file direttamente, cosa stampa?",
+                "codice": 'def main():\n    print("avvio")\n\nif __name__ == "__main__":\n    main()\n',
+                "expected": "avvio",
+                "hint": "Eseguito direttamente, `__name__` vale `'__main__'`, quindi la condizione è vera e `main()` parte: stampa 'avvio'.",
+                "xp_bonus": 5,
+            },
+            {
+                "testo": "La versione è `'3.11.4'`. Estrai e stampa solo il numero **MAJOR** (`3`).",
+                "placeholder": 'versione = "3.11.4"\n# stampa il major',
+                "check": lambda out, err, vs: err is None and out.strip() == "3",
+                "feedback": lambda out, err: "`versione.split('.')[0]` è la prima parte.",
+                "hint": 'versione = "3.11.4"\nprint(versione.split(".")[0])',
+                "xp_bonus": 10,
+            },
+            {
+                "testo": "Confronta `'1.2.0'` e `'1.10.0'` **come tuple di interi** e stampa se la seconda è maggiore (`True`). (Come stringhe darebbe il risultato sbagliato!)",
+                "placeholder": 'v1 = "1.2.0"\nv2 = "1.10.0"\n# converti in tuple di int e confronta',
+                "check": lambda out, err, vs: err is None and out.strip() == "True",
+                "feedback": lambda out, err: "`tuple(int(x) for x in v.split('.'))` per entrambe, poi confronta con `>`.",
+                "hint": 'v1 = tuple(int(x) for x in "1.2.0".split("."))\nv2 = tuple(int(x) for x in "1.10.0".split("."))\nprint(v2 > v1)',
+                "xp_bonus": 10,
+            },
+            {
+                "testo": "🏆 **BOSS**: Incrementa il **PATCH** di `'1.4.9'` di uno e stampa la nuova versione (`1.4.10`).",
+                "placeholder": 'versione = "1.4.9"\n# scomponi, incrementa il patch, ricomponi',
+                "check": lambda out, err, vs: err is None and "1.4.10" in out,
+                "feedback": lambda out, err: "Scomponi in interi, `patch += 1`, poi `f'{major}.{minor}.{patch}'`.",
+                "hint": 'major, minor, patch = (int(x) for x in "1.4.9".split("."))\npatch += 1\nprint(f"{major}.{minor}.{patch}")',
+                "xp_bonus": 15,
+            },
+        ],
+    },
+    {
+        "id": "design_patterns", "title": "Design Patterns",
+        "icon": "🧩", "world": "🧩 Tempio dei Pattern",
+        "teoria": """
+### Soluzioni collaudate a problemi ricorrenti
+I *design pattern* sono schemi riutilizzabili. Tre classici:
+
+**Factory** — una funzione che costruisce l'oggetto giusto in base a un input:
+```python
+def crea(tipo):
+    return {"cane": Cane, "gatto": Gatto}[tipo]()
+```
+
+**Strategy** — scegli un comportamento da un dizionario di funzioni, niente `if/elif` infiniti:
+```python
+strategie = {"carta": paga_carta, "paypal": paga_paypal}
+strategie["paypal"](50)
+```
+
+**Singleton** — una sola istanza condivisa (es. configurazione globale), via `__new__`:
+```python
+class Config:
+    _istanza = None
+    def __new__(cls):
+        if cls._istanza is None:
+            cls._istanza = super().__new__(cls)
+        return cls._istanza
+```
+""",
+        "esempio": 'def paga_carta(importo): return f"Carta: {importo}euro"\ndef paga_paypal(importo): return f"PayPal: {importo}euro"\n\nstrategie = {"carta": paga_carta, "paypal": paga_paypal}\nprint(strategie["paypal"](50))',
+        "esercizi": [
+            {
+                "testo": "**Factory**: scrivi `crea_risorsa(tipo)` che mappa `ec2→Server`, `s3→Storage`, `rds→Database` (default `Sconosciuto`). Stampa `crea_risorsa('s3')`.",
+                "placeholder": "def crea_risorsa(tipo):\n    pass\n\nprint(crea_risorsa('s3'))",
+                "check": lambda out, err, vs: err is None and "Storage" in out,
+                "feedback": lambda out, err: "Usa un dict e `.get(tipo, 'Sconosciuto')`.",
+                "hint": "def crea_risorsa(tipo):\n    risorse = {'ec2': 'Server', 's3': 'Storage', 'rds': 'Database'}\n    return risorse.get(tipo, 'Sconosciuto')\n\nprint(crea_risorsa('s3'))",
+                "xp_bonus": 0,
+            },
+            {
+                "testo": "**Strategy**: dato `strategie = {'nessuno': ..., 'meta': ...}` con funzioni di sconto, applica la strategia `'meta'` a `100` e stampa (`50.0`).",
+                "placeholder": "def sconto_nessuno(p):\n    return p\ndef sconto_meta(p):\n    return p / 2\n\nstrategie = {'nessuno': sconto_nessuno, 'meta': sconto_meta}\n# applica 'meta' a 100 e stampa",
+                "check": lambda out, err, vs: err is None and "50.0" in out,
+                "feedback": lambda out, err: "`print(strategie['meta'](100))`.",
+                "hint": "def sconto_nessuno(p):\n    return p\ndef sconto_meta(p):\n    return p / 2\n\nstrategie = {'nessuno': sconto_nessuno, 'meta': sconto_meta}\nprint(strategie['meta'](100))",
+                "xp_bonus": 10,
+            },
+            {
+                "tipo": "predict",
+                "testo": "🔍 **PREVEDI**: Due `Config()` sono lo stesso oggetto? Cosa stampa?",
+                "codice": 'class Config:\n    _istanza = None\n    def __new__(cls):\n        if cls._istanza is None:\n            cls._istanza = super().__new__(cls)\n        return cls._istanza\n\na = Config()\nb = Config()\nprint(a is b)\n',
+                "expected": "True",
+                "hint": "Il Singleton via `__new__` restituisce sempre la stessa istanza: `a is b` è True.",
+                "xp_bonus": 5,
+            },
+            {
+                "testo": "🏆 **BOSS**: **Factory di classi** — `Cane.verso()→'Bau'`, `Gatto.verso()→'Miao'`. Scrivi `crea(tipo)` che istanzia la classe giusta. Stampa `crea('gatto').verso()`.",
+                "placeholder": "class Cane:\n    def verso(self):\n        return 'Bau'\nclass Gatto:\n    def verso(self):\n        return 'Miao'\n\ndef crea(tipo):\n    pass\n\nprint(crea('gatto').verso())",
+                "check": lambda out, err, vs: err is None and "Miao" in out,
+                "feedback": lambda out, err: "`return {'cane': Cane, 'gatto': Gatto}[tipo]()` — nota le parentesi `()` per istanziare.",
+                "hint": "class Cane:\n    def verso(self):\n        return 'Bau'\nclass Gatto:\n    def verso(self):\n        return 'Miao'\n\ndef crea(tipo):\n    return {'cane': Cane, 'gatto': Gatto}[tipo]()\n\nprint(crea('gatto').verso())",
+                "xp_bonus": 15,
+            },
+        ],
+    },
 ]
 
 
