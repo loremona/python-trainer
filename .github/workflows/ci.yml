@@ -25,3 +25,6 @@ jobs:
 
       - name: Esegui test_curriculum.py
         run: python test_curriculum.py -q
+
+      - name: Esegui test_gamification.py
+        run: python test_gamification.py -q
