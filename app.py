@@ -1623,6 +1623,21 @@ def render_stats():
         st.markdown(f"**{icon} {m['title']}** — {done}/{tot}")
         st.progress(done / tot if tot else 0)
 
+    st.markdown("### 🎯 I tuoi punti deboli")
+    epm = s.get("errori_per_modulo", {})
+    titoli = {m["id"]: (m["icon"], m["title"]) for m in CURRICULUM}
+    classifica = [(mid, n) for mid, n in
+                  sorted(epm.items(), key=lambda kv: kv[1], reverse=True) if n > 0][:5]
+    if not classifica:
+        st.caption("Nessun errore registrato ancora — concentrati pure sui nuovi moduli. 💪")
+    else:
+        st.caption("I moduli dove sbagli di più: concentra qui il ripasso.")
+        max_n = classifica[0][1]
+        for mid, n in classifica:
+            icon, titolo = titoli.get(mid, ("📦", mid))
+            st.markdown(f"**{icon} {titolo}** — {n} error{'e' if n == 1 else 'i'}")
+            st.progress(n / max_n if max_n else 0)
+
     st.markdown("### Ripasso (Spaced Repetition)")
     mastered, pending, not_started = 0, 0, 0
     for m in CURRICULUM:
