@@ -601,17 +601,15 @@ Rispondi SOLO con questo JSON, nessun testo fuori:
   "soluzione": "codice Python completo e funzionante"
 }}"""
 
-def generate_ai_exercise(module_title: str) -> dict | None:
-    backend, param = detect_ai_backend()
-    if not backend:
-        return None
-    prompt = _AI_PROMPT_TEMPLATE.format(title=module_title)
+def _ai_generate_once(backend: str, param: str, prompt: str) -> dict | None:
+    """Un singolo tentativo di generazione. None se fallisce o è incompleto."""
     try:
         if backend == "ollama":
             r = requests.post(
                 "http://localhost:11434/api/generate",
-                json={"model": param, "prompt": prompt, "stream": False},
-                timeout=30,
+                json={"model": param, "prompt": prompt, "stream": False,
+                      "format": "json"},   # vincola l'output a JSON valido
+                timeout=90,                 # i modelli piccoli + primo caricamento sono lenti
             )
             r.raise_for_status()
             raw = r.json()["response"]
@@ -624,6 +622,7 @@ def generate_ai_exercise(module_title: str) -> dict | None:
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": 0.85,
                     "max_tokens": 600,
+                    "response_format": {"type": "json_object"},
                 },
                 timeout=15,
             )
@@ -634,11 +633,28 @@ def generate_ai_exercise(module_title: str) -> dict | None:
         if not match:
             return None
         data = json.loads(match.group())
-        if not {"testo", "placeholder", "expected", "hint", "soluzione"}.issubset(data):
+        # Solo questi 4 campi sono indispensabili. I modelli piccoli a volte
+        # troncano l'ultimo campo (`soluzione`): lo rendiamo facoltativo.
+        if not {"testo", "placeholder", "expected", "hint"}.issubset(data):
             return None
+        data.setdefault("soluzione", data.get("hint", "—"))
         return data
     except Exception:
         return None
+
+
+def generate_ai_exercise(module_title: str) -> dict | None:
+    backend, param = detect_ai_backend()
+    if not backend:
+        return None
+    prompt = _AI_PROMPT_TEMPLATE.format(title=module_title)
+    # I modelli piccoli sono incostanti: qualche tentativo aumenta molto la
+    # probabilità di una risposta valida.
+    for _ in range(3):
+        data = _ai_generate_once(backend, param, prompt)
+        if data:
+            return data
+    return None
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
