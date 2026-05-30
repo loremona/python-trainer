@@ -1133,6 +1133,21 @@ def _render_diff(left_label: str, left: str, right_label: str, right: str):
 # STUDY VIEW
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+@st.cache_data
+def _load_soluzioni():
+    """Soluzioni canoniche complete (chiave 'modulo#idx'). Vuoto se assente."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "soluzioni.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def soluzione_completa(m, j, ex):
+    """Soluzione di riferimento per un esercizio: voce in soluzioni.json,
+    oppure l'hint se è già un programma completo. None se non disponibile."""
+    return _load_soluzioni().get(f"{m['id']}#{j}") or ex.get("hint")
+
 def render_study(idx):
     m = CURRICULUM[idx]
     done_n, tot = module_progress(idx)
@@ -1418,6 +1433,13 @@ def render_study(idx):
                             persist()
                         st.info(f"💡 {ex['hint']}")
                 _ai_explain_widget(eid)
+
+                # Soluzione di riferimento: disponibile dopo aver risolto
+                # o dopo aver chiesto un hint (per non spoilerare subito).
+                sol = soluzione_completa(m, j, ex)
+                if sol and (done_ex or eid in s.get("hints_used", [])):
+                    with st.expander("✅ Soluzione completa"):
+                        st.code(sol, language="python")
 
         # ── AI Exercises ──────────────────────────────────────────────
         st.divider()
