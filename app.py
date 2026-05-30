@@ -2489,10 +2489,22 @@ def load_save():
     return default_save()
 
 def persist():
+    """Salva i progressi in modo atomico: scrive su un file temporaneo nella
+    stessa cartella, poi os.replace() (rename atomico). Un crash a metà
+    scrittura lascia intatto il salvataggio precedente invece di corromperlo."""
+    tmp = SAVE_FILE.with_suffix(SAVE_FILE.suffix + ".tmp")
     try:
-        SAVE_FILE.write_text(json.dumps(st.session_state.save, indent=2))
-    except Exception:
-        pass
+        tmp.write_text(json.dumps(st.session_state.save, indent=2))
+        os.replace(tmp, SAVE_FILE)
+    except Exception as e:
+        # Non propaghiamo (non vogliamo far cadere la UI), ma lo segnaliamo
+        # invece di ingoiarlo in silenzio: prima un crash qui = progressi persi
+        # senza che l'utente lo sapesse.
+        print(f"persist: impossibile salvare i progressi ({e})", file=sys.stderr)
+        try:
+            tmp.unlink(missing_ok=True)
+        except Exception:
+            pass
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -3084,7 +3096,7 @@ def connetti(regione="eu-west-1", porta=443):
                 "placeholder": "def doppio(n):\n    pass\n\nprint(doppio(7))",
                 "check": lambda out, err, vs: err is None and "14" in _ol(out),
                 "feedback": lambda out, err: "La funzione deve `return n * 2` — `pass` non fa nulla",
-                "hint": "def doppio(n):\n    return n * 2",
+                "hint": "def doppio(n):\n    return n * 2\n\nprint(doppio(7))",
                 "xp_bonus": 0,
             },
             {
@@ -3092,15 +3104,15 @@ def connetti(regione="eu-west-1", porta=443):
                 "placeholder": 'def saluta_utente(nome, servizio="AWS"):\n    pass\n\nsaluta_utente("Lorenzo")',
                 "check": lambda out, err, vs: err is None and "Lorenzo" in out and "AWS" in out,
                 "feedback": lambda out, err: 'Dentro la funzione: `print(f"Benvenuto {nome} su {servizio}")`',
-                "hint": 'def saluta_utente(nome, servizio="AWS"):\n    print(f"Benvenuto {nome} su {servizio}")',
+                "hint": 'def saluta_utente(nome, servizio="AWS"):\n    print(f"Benvenuto {nome} su {servizio}")\n\nsaluta_utente("Lorenzo")',
                 "xp_bonus": 0,
             },
             {
                 "testo": "🏆 **BOSS**: Scrivi `calcola_sconto(prezzo, sconto_pct=10)` che restituisce il prezzo scontato. Stampa il prezzo di 200€ con sconto 25%.",
                 "placeholder": "def calcola_sconto(prezzo, sconto_pct=10):\n    pass\n\nprint(calcola_sconto(200, 25))",
-                "check": lambda out, err, vs: err is None and "150" in _ol(out),
+                "check": lambda out, err, vs: err is None and "150" in out,
                 "feedback": lambda out, err: "200 con sconto 25% = 150. Formula: `prezzo * (1 - sconto_pct/100)`",
-                "hint": "def calcola_sconto(prezzo, sconto_pct=10):\n    return prezzo * (1 - sconto_pct/100)",
+                "hint": "def calcola_sconto(prezzo, sconto_pct=10):\n    return prezzo * (1 - sconto_pct/100)\n\nprint(calcola_sconto(200, 25))",
                 "xp_bonus": 10,
             },
         ],
@@ -3367,6 +3379,9 @@ except ClientError as e:
                     '        print(f"Bucket non esiste: {nome}")\n'
                     '    finally:\n'
                     '        print("Connessione chiusa")\n'
+                    '\n'
+                    'accedi_bucket("prod-logs")\n'
+                    'accedi_bucket("bucket-inesistente")\n'
                 ),
                 "xp_bonus": 10,
             },
@@ -3444,7 +3459,7 @@ print(sys.version_info)   # sys.version_info(major=3, minor=11, ...)
                 "placeholder": "pacchetti = [\n    \"boto3==1.34.0\",\n    # aggiungi gli altri\n]\nfor p in pacchetti:\n    print(p)",
                 "check": lambda out, err, vs: err is None and "boto3" in out and "streamlit" in out and "==" in out,
                 "feedback": lambda out, err: "Stampa ogni pacchetto con la versione usando ==",
-                "hint": 'print("boto3==1.34.0")',
+                "hint": 'pacchetti = [\n    "boto3==1.34.0",\n    "streamlit==1.40.0",\n    "requests==2.31.0",\n]\nfor p in pacchetti:\n    print(p)',
                 "xp_bonus": 0,
             },
             {
@@ -3454,11 +3469,11 @@ print(sys.version_info)   # sys.version_info(major=3, minor=11, ...)
                     'import sys\n'
                     'info = sys.version_info\n'
                     'print(type(info).__name__)\n'
-                    'print(info[:2])\n'
+                    'print(info.major)\n'
                     'print(info >= (3, 10))\n'
                 ),
-                "expected": "version_info\n(3, 10)\nTrue",
-                "hint": "sys.version_info è una namedtuple. [:2] prende major e minor. Il confronto dipende dalla versione installata — guarda la riga 3.",
+                "expected": "version_info\n3\nTrue",
+                "hint": "sys.version_info è una namedtuple: ha campi con nome come .major (sempre 3 in Python 3). Il confronto con la tupla (3, 10) dà True su Python 3.10+.",
                 "xp_bonus": 5,
             },
             {
@@ -3684,7 +3699,7 @@ print(triplo(5))  # 15
                 "placeholder": "quadrato = lambda x: ...\nprint(quadrato(7))",
                 "check": lambda out, err, vs: err is None and "49" in _ol(out),
                 "feedback": lambda out, err: "lambda x: x ** 2",
-                "hint": "lambda x: x ** 2",
+                "hint": "quadrato = lambda x: x ** 2\nprint(quadrato(7))",
                 "xp_bonus": 0,
             },
             {
@@ -3692,7 +3707,7 @@ print(triplo(5))  # 15
                 "placeholder": 'nomi = ["banana", "Mela", "ciliegia", "Arancia"]\nordinati = sorted(nomi, key=lambda s: ...)\nprint(ordinati)',
                 "check": lambda out, err, vs: err is None and "Arancia" in out and out.index("Arancia") < out.index("banana"),
                 "feedback": lambda out, err: "key=lambda s: s.lower() rende il confronto case-insensitive",
-                "hint": "key=lambda s: s.lower()",
+                "hint": 'nomi = ["banana", "Mela", "ciliegia", "Arancia"]\nordinati = sorted(nomi, key=lambda s: s.lower())\nprint(ordinati)',
                 "xp_bonus": 0,
             },
             {
@@ -3720,8 +3735,8 @@ print(triplo(5))  # 15
                     'f()\n'
                     'print(x)\n'
                 ),
-                "expected": "30\n30\n10",
-                "hint": "g() cattura il riferimento a x di f(), non il valore al momento della definizione. Quando g() esegue, x è già 30.",
+                "expected": "20\n30\n10",
+                "hint": "g() legge la x di f() nel momento in cui viene ESEGUITA, non quando è definita. 1ª g(): x vale 20. Poi x diventa 30 → 2ª g(): stampa 30. Infine print(x) usa la x globale: 10.",
                 "xp_bonus": 5,
             },
             {
@@ -4094,7 +4109,7 @@ def leggi_oggetti(s3, bucket):
                 "placeholder": "totale = sum(... for i in range(1, 11))\nprint(totale)",
                 "check": lambda out, err, vs: err is None and "385" in _ol(out),
                 "feedback": lambda out, err: "sum(i**2 for i in range(1, 11)) = 385",
-                "hint": "sum(i**2 for i in range(1, 11))",
+                "hint": "totale = sum(i**2 for i in range(1, 11))\nprint(totale)",
                 "xp_bonus": 0,
             },
             {
