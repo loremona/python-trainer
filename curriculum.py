@@ -14,1975 +14,648 @@ def _ol(out: str) -> set[str]:
     return {l.strip() for l in out.strip().splitlines() if l.strip()}
 
 
-CONCETTI = {
-    "variabili": {
-        "analogia": """
-**La variabile è un post-it appiccicato su un valore.**
-
-Immagina di aprire AWS per la prima volta. Hai il tuo Access Key, il nome della regione, il nome del bucket.
-Potresti riscriverli ogni volta — oppure metterli su un post-it e usare il post-it.
-
-```python
-regione   = "eu-west-1"        # post-it "regione"
-bucket    = "mio-bucket-logs"  # post-it "bucket"
-max_size  = 500                # post-it "max_size"
-```
-
-Python tiene traccia del post-it. Se il valore cambia, aggiorni solo il post-it — il resto del codice non sa nulla di diverso.
-""",
-        "perche": """
-**Perché esistono le variabili?**
-
-1. **Evitare la ripetizione** — se il nome del bucket cambia, lo cambi in un posto solo.
-2. **Dare un nome alle cose** — `credito_aws = 150` è più leggibile di `150` sparso nel codice.
-3. **Conservare risultati intermedi** — `totale = prezzo * quantita` salva il risultato per usarlo dopo.
-4. **Comunicare l'intenzione** — il nome della variabile spiega cosa contiene.
-
-In boto3 userai variabili continuamente:
-```python
-client    = boto3.client("s3")
-risposta  = client.list_buckets()
-bucket_id = risposta["Buckets"][0]["Name"]
-```
-Ogni riga salva qualcosa che serve alla riga successiva.
-""",
-        "errori_comuni": [
-            {
-                "titolo": "❌ Confondere = con ==",
-                "testo": "`=` **assegna** un valore. `==` **confronta** due valori. Errore classico dentro un `if`.",
-                "codice_sbagliato": "if ruolo = 'admin':  # SyntaxError!",
-                "codice_giusto":    "if ruolo == 'admin':  # confronto corretto",
-            },
-            {
-                "titolo": "❌ Usare una variabile prima di crearla",
-                "testo": "Python legge il codice dall'alto in basso. Se usi `nome` prima di definirlo → `NameError`.",
-                "codice_sbagliato": "print(nome)       # NameError\nnome = 'Lorenzo'",
-                "codice_giusto":    "nome = 'Lorenzo'  # prima definisci\nprint(nome)       # poi usi",
-            },
-            {
-                "titolo": "❌ Sovrascrivere funzioni built-in",
-                "testo": "Evita nomi come `list`, `type`, `input`, `id` — sono funzioni di Python e le sovrascriveresti.",
-                "codice_sbagliato": "type = 't3.micro'  # hai distrutto la funzione type()",
-                "codice_giusto":    "tipo_istanza = 't3.micro'  # nome descrittivo e sicuro",
-            },
-        ],
-        "quando_usarlo": "Sempre — le variabili sono il mattone base. Ogni valore che usi più di una volta merita una variabile.",
-    },
-
-    "stringhe": {
-        "analogia": """
-**La stringa è un collier di perle — ogni perla è un carattere.**
-
-Puoi contare le perle (`len`), prenderne una (`s[0]`), tagliare il collier (`s[2:5]`),
-trasformarlo tutto in oro (`upper()`) o argento (`lower()`).
-
-```python
-arn = "arn:aws:s3:::mio-bucket"
-#      0123456789...
-print(arn[0:3])    # "arn"   → prime 3 perle
-print(arn[-6:])    # "bucket" → ultime 6 perle
-print(len(arn))    # 24      → quante perle
-```
-
-La cosa importante: **le stringhe sono immutabili**. Non puoi cambiare una perla — devi creare un nuovo collier.
-""",
-        "perche": """
-**Perché le stringhe sono così importanti per AWS?**
-
-In AWS quasi tutto è testo: nomi di bucket, ARN, ID di istanze, regioni, tag, messaggi di log.
-Sapere manipolare le stringhe significa saper lavorare con le risorse AWS.
-
-Esempi reali:
-```python
-# Estrarre la regione da un ARN
-arn = "arn:aws:ec2:eu-west-1:123456:instance/i-001"
-parti   = arn.split(":")
-regione = parti[3]   # "eu-west-1"
-
-# Costruire nomi di bucket dinamici
-ambiente = "prod"
-nome_bucket = f"mio-progetto-{ambiente}-logs"  # "mio-progetto-prod-logs"
-
-# Filtrare log per parola chiave
-linea = "2024-01-15 ERROR: connection timeout"
-if "ERROR" in linea:
-    print(f"Problema trovato: {linea}")
-```
-""",
-        "errori_comuni": [
-            {
-                "titolo": "❌ Modificare una stringa in-place",
-                "testo": "Le stringhe sono immutabili. Per 'modificarle' crei sempre una nuova stringa.",
-                "codice_sbagliato": 's = "hello"\ns[0] = "H"  # TypeError!',
-                "codice_giusto":    's = "hello"\ns = "H" + s[1:]  # "Hello"',
-            },
-            {
-                "titolo": "❌ Dimenticare le virgolette",
-                "testo": "Senza virgolette, Python pensa che sia un nome di variabile, non testo.",
-                "codice_sbagliato": "regione = eu-west-1   # NameError (o errore matematica)",
-                "codice_giusto":    'regione = "eu-west-1"  # stringa corretta',
-            },
-            {
-                "titolo": "❌ Concatenare stringa e numero",
-                "testo": "Non puoi unire direttamente testo e numero con `+`. Usa f-string.",
-                "codice_sbagliato": 'print("Costo: " + 42)      # TypeError',
-                "codice_giusto":    'print(f"Costo: {42}")       # oppure str(42)',
-            },
-        ],
-        "quando_usarlo": "Ogni volta che lavori con testo: nomi di risorse, log, messaggi, ARN, tag AWS, output da formattare.",
-    },
-
-    "condizioni": {
-        "analogia": """
-**Il codice è come un semaforo: prende decisioni.**
-
-Senza condizioni, il codice fa sempre la stessa cosa — come un robot che non guarda dove va.
-Con le condizioni, il codice *reagisce* alla realtà.
-
-```python
-credito_aws = 12  # EUR rimasti
-
-if credito_aws < 10:
-    print("🚨 Ricarica subito!")
-elif credito_aws < 50:
-    print("⚠️  Credito in esaurimento")
-else:
-    print("✅ Tutto ok")
-```
-
-Python legge la condizione, decide quale ramo prendere, esegue solo quello.
-Gli altri rami non vengono eseguiti.
-""",
-        "perche": """
-**Perché le condizioni sono essenziali nell'automazione AWS?**
-
-Un script boto3 deve *decidere*:
-- Il bucket esiste già? → salta la creazione
-- L'istanza è stopped? → avviala, altrimenti lasciala stare
-- Il costo supera la soglia? → manda un alert
-
-```python
-stato = istanza["State"]["Name"]
-
-if stato == "stopped":
-    ec2.start_instances(InstanceIds=[istanza["InstanceId"]])
-    print(f"Avviata {istanza['InstanceId']}")
-elif stato == "running":
-    print("Già in esecuzione, skip")
-else:
-    print(f"Stato inaspettato: {stato}")
-```
-
-Senza `if`, lo script farebbe sempre la stessa cosa — inutile per l'automazione reale.
-""",
-        "errori_comuni": [
-            {
-                "titolo": "❌ Dimenticare i due punti",
-                "testo": "Ogni `if`, `elif`, `else` deve finire con `:`. È la sintassi di Python.",
-                "codice_sbagliato": "if x > 0\n    print(x)  # SyntaxError",
-                "codice_giusto":    "if x > 0:\n    print(x)",
-            },
-            {
-                "titolo": "❌ Indentazione sbagliata",
-                "testo": "Il blocco dentro l'if deve essere indentato di 4 spazi. Python usa gli spazi per capire i confini.",
-                "codice_sbagliato": "if x > 0:\nprint(x)    # IndentationError",
-                "codice_giusto":    "if x > 0:\n    print(x)  # 4 spazi",
-            },
-            {
-                "titolo": "❌ Usare = invece di ==",
-                "testo": "`=` assegna, `==` confronta. Dentro un `if` vuoi confrontare.",
-                "codice_sbagliato": 'if stato = "running":  # SyntaxError',
-                "codice_giusto":    'if stato == "running":',
-            },
-        ],
-        "quando_usarlo": "Ogni volta che il comportamento del codice deve cambiare in base a una condizione. In boto3: controllo stati, soglie, esistenza di risorse.",
-    },
-
-    "cicli": {
-        "analogia": """
-**Il for loop è un operaio su un nastro trasportatore.**
-
-Ogni oggetto sul nastro (la lista) viene preso, lavorato, rimesso giù — uno alla volta, senza che tu debba dire "adesso il secondo, adesso il terzo".
-
-```python
-bucket_list = ["logs", "backup", "data", "archive"]
-
-for bucket in bucket_list:          # prende uno alla volta
-    print(f"Controllo: {bucket}")   # lo lavora
-                                    # poi passa al prossimo
-```
-
-Con 4 bucket o 400, il codice è identico. **Questa è la potenza dei cicli.**
-""",
-        "perche": """
-**Perché i cicli sono il cuore dell'automazione AWS?**
-
-boto3 ti restituisce sempre liste:
-- Lista di bucket S3
-- Lista di istanze EC2
-- Lista di log CloudWatch
-- Lista di snapshot EBS
-
-Senza for loop, dovresti scrivere 100 righe per 100 istanze. Con il for, scrivi 3 righe per qualsiasi numero.
-
-```python
-# Ferma TUTTE le istanze running in una regione
-for res in ec2.describe_instances()["Reservations"]:
-    for ist in res["Instances"]:
-        if ist["State"]["Name"] == "running":
-            ec2.stop_instances(InstanceIds=[ist["InstanceId"]])
-            print(f"Fermata: {ist['InstanceId']}")
-```
-
-Questo script funziona con 1 istanza o con 1000. Non cambia nulla.
-""",
-        "errori_comuni": [
-            {
-                "titolo": "❌ range(10) non va da 1 a 10",
-                "testo": "`range(10)` genera 0,1,2,...,9. Per 1-10 usa `range(1, 11)`.",
-                "codice_sbagliato": "for i in range(10):\n    print(i)  # stampa 0..9, non 1..10",
-                "codice_giusto":    "for i in range(1, 11):\n    print(i)  # 1..10",
-            },
-            {
-                "titolo": "❌ Loop infinito con while",
-                "testo": "Se dimentichi di aggiornare la variabile del while, il loop non si ferma mai.",
-                "codice_sbagliato": "n = 0\nwhile n < 5:\n    print(n)  # loop infinito! n non cambia mai",
-                "codice_giusto":    "n = 0\nwhile n < 5:\n    print(n)\n    n += 1  # fondamentale",
-            },
-            {
-                "titolo": "❌ Modificare la lista mentre ci iteri sopra",
-                "testo": "Rimuovere elementi da una lista durante il for causa comportamenti imprevedibili.",
-                "codice_sbagliato": "for x in lista:\n    lista.remove(x)  # salta elementi!",
-                "codice_giusto":    "lista = [x for x in lista if condizione]  # list comprehension",
-            },
-        ],
-        "quando_usarlo": "Ogni volta che hai una collezione di cose da processare. In boto3: quasi sempre — tutte le risposte AWS sono liste.",
-    },
-
-    "funzioni": {
-        "analogia": """
-**Una funzione è una ricetta.**
-
-La scrivi una volta, la segui ogni volta che vuoi quel piatto, con ingredienti diversi.
-
-```python
-def calcola_costo(ore, prezzo_orario):   # la ricetta
-    return ore * prezzo_orario
-
-costo_dev  = calcola_costo(730, 0.023)   # ingredienti: istanza dev
-costo_prod = calcola_costo(730, 0.096)   # ingredienti: istanza prod
-```
-
-La ricetta non cambia. Cambiano solo gli ingredienti (parametri).
-
-**DRY: Don't Repeat Yourself** — se scrivi lo stesso codice due volte, fanne una funzione.
-""",
-        "perche": """
-**Perché le funzioni sono essenziali per script AWS professionali?**
-
-Senza funzioni, ogni script boto3 diventa un muro di codice illeggibile.
-Con le funzioni, ogni operazione ha un nome e uno scopo.
-
-```python
-def ottieni_istanze_running(ec2_client, regione):
-    risposta = ec2_client.describe_instances(
-        Filters=[{"Name": "instance-state-name", "Values": ["running"]}]
-    )
-    istanze = []
-    for res in risposta["Reservations"]:
-        istanze.extend(res["Instances"])
-    return istanze
-
-def ferma_istanza(ec2_client, instance_id):
-    ec2_client.stop_instances(InstanceIds=[instance_id])
-    print(f"✅ Fermata: {instance_id}")
-
-# Main script — leggibile come una lista di passi
-ec2      = boto3.client("ec2", region_name="eu-west-1")
-running  = ottieni_istanze_running(ec2, "eu-west-1")
-for ist in running:
-    ferma_istanza(ec2, ist["InstanceId"])
-```
-
-Ogni funzione fa **una cosa sola** e ha un **nome che spiega cosa fa**.
-Se trovi un bug, lo correggi in un posto — si aggiusta ovunque.
-""",
-        "errori_comuni": [
-            {
-                "titolo": "❌ Dimenticare return",
-                "testo": "Senza `return`, la funzione ritorna `None` silenziosamente. Nessun errore — solo risultati strani.",
-                "codice_sbagliato": "def doppio(n):\n    n * 2  # calcola ma non ritorna nulla\n\nprint(doppio(5))  # stampa None",
-                "codice_giusto":    "def doppio(n):\n    return n * 2\n\nprint(doppio(5))  # stampa 10",
-            },
-            {
-                "titolo": "❌ Chiamare la funzione senza parentesi",
-                "testo": "Senza `()` non chiami la funzione — ottieni solo un riferimento ad essa.",
-                "codice_sbagliato": "print(doppio)   # <function doppio at 0x...>",
-                "codice_giusto":    "print(doppio(5))  # 10",
-            },
-            {
-                "titolo": "❌ Variabili locali vs globali",
-                "testo": "Le variabili create dentro una funzione esistono solo dentro di essa.",
-                "codice_sbagliato": "def crea():\n    x = 10\n\ncrea()\nprint(x)  # NameError! x non esiste fuori",
-                "codice_giusto":    "def crea():\n    return 10\n\nx = crea()\nprint(x)  # 10",
-            },
-        ],
-        "quando_usarlo": "Ogni volta che scrivi lo stesso codice più di una volta, o quando vuoi dare un nome chiaro a un'operazione. Regola: una funzione = una responsabilità.",
-    },
-
-    "liste_dizionari": {
-        "analogia": """
-**Lista = scaffale numerato. Dizionario = rubrica telefonica.**
-
-Lo scaffale (lista) è ordinato: primo piano, secondo piano, terzo piano.
-La rubrica (dizionario) ha etichette: cerchi "Lorenzo" e trovi il numero — non importa in che posizione è.
-
-```python
-# Scaffale numerato (lista)
-regioni = ["eu-west-1", "us-east-1", "ap-southeast-1"]
-print(regioni[0])   # "eu-west-1" — primo scaffale
-
-# Rubrica (dizionario)
-istanza = {"id": "i-001", "tipo": "t3.micro", "stato": "running"}
-print(istanza["tipo"])   # "t3.micro" — cerchi per nome, non per posizione
-```
-
-**La differenza chiave:** nella lista sai dove stai. Nel dizionario sai come si chiama.
-""",
-        "perche": """
-**Perché liste e dizionari sono fondamentali per boto3?**
-
-Ogni risposta di boto3 è un dizionario che contiene liste che contengono dizionari.
-
-```python
-risposta = ec2.describe_instances()
-# {
-#   "Reservations": [           ← lista
-#     {                         ← dizionario
-#       "Instances": [          ← lista
-#         {                     ← dizionario
-#           "InstanceId": "i-001",
-#           "State": {"Name": "running"},
-#           "Tags": [{"Key": "Name", "Value": "WebServer"}]
-#         }
-#       ]
-#     }
-#   ]
-# }
-```
-
-Sapere navigare dizionari annidati **è il 70% del lavoro con boto3**.
-Ogni servizio AWS ha la sua struttura, ma il pattern è sempre lo stesso: dict dentro list dentro dict.
-""",
-        "errori_comuni": [
-            {
-                "titolo": "❌ KeyError — chiave che non esiste",
-                "testo": "Accedere a una chiave inesistente in un dizionario causa KeyError. Usa `.get()` per sicurezza.",
-                "codice_sbagliato": 'ist["PublicIp"]  # KeyError se l\'istanza non ha IP pubblico',
-                "codice_giusto":    'ist.get("PublicIp", "N/A")  # ritorna "N/A" se non esiste',
-            },
-            {
-                "titolo": "❌ IndexError — indice fuori range",
-                "testo": "Lista con 3 elementi: indici validi sono 0, 1, 2. L'indice 3 causa IndexError.",
-                "codice_sbagliato": "lista = [1, 2, 3]\nprint(lista[3])  # IndexError",
-                "codice_giusto":    "if lista:\n    print(lista[0])  # controlla prima che non sia vuota",
-            },
-            {
-                "titolo": "❌ Confondere lista di dict con dict",
-                "testo": "boto3 spesso ritorna una lista di dizionari, non un dizionario singolo.",
-                "codice_sbagliato": 'risposta["Buckets"]["Name"]  # TypeError — Buckets è una lista',
-                "codice_giusto":    'risposta["Buckets"][0]["Name"]  # prima elemento, poi chiave',
-            },
-        ],
-        "quando_usarlo": "Liste per sequenze ordinate di cose simili. Dizionari per dati con campi nominati (come JSON, come le risposte boto3).",
-    },
-
-    "automazione": {
-        "analogia": """
-**Il tuo script è un robot in fabbrica.**
-
-`os` è il braccio che si muove tra i cassetti del filesystem.
-`open()` è la mano che apre e chiude scatole (file).
-Il for loop è il nastro trasportatore che porta ogni file al robot.
-
-```python
-import os
-
-for nome_file in os.listdir("/var/log/aws"):     # nastro
-    if nome_file.endswith(".log"):                # filtro
-        with open(nome_file, "r") as f:           # apri scatola
-            contenuto = f.read()                  # leggi
-            if "ERROR" in contenuto:
-                print(f"Problema in: {nome_file}")
-```
-
-Il robot non si stanca. Processa 1 file o 10.000 con lo stesso sforzo.
-""",
-        "perche": """
-**Perché automazione e file sono cruciali nel lavoro Cloud?**
-
-Scenari reali in cui userai questi strumenti:
-
-1. **Report di costo** — scarichi i dati di billing AWS (CSV) e li elabori con Python
-2. **Analisi log** — leggi file di log da S3, cerchi pattern di errore
-3. **Backup automatici** — crei cartelle con timestamp, sposti file
-4. **Config management** — leggi file YAML/JSON con configurazioni di deploy
-
-```python
-import os
-from datetime import date
-
-# Crea cartella backup con data odierna
-oggi = str(date.today())
-cartella = f"backup_{oggi}"
-os.makedirs(cartella, exist_ok=True)
-
-# Salva report
-with open(f"{cartella}/report.txt", "w") as f:
-    f.write(f"Report del {oggi}\\n")
-    f.write("Istanze attive: 12\\n")
-    f.write("Costo stimato: $142.50\\n")
-```
-""",
-        "errori_comuni": [
-            {
-                "titolo": "❌ Non usare 'with' per aprire file",
-                "testo": "Senza `with`, se il codice crasha il file rimane aperto e bloccato.",
-                "codice_sbagliato": "f = open('file.txt')\ncontenuto = f.read()\n# se qui crasha, f rimane aperto",
-                "codice_giusto":    "with open('file.txt') as f:\n    contenuto = f.read()\n# chiuso automaticamente",
-            },
-            {
-                "titolo": "❌ Modalità sbagliata",
-                "testo": "`'r'` legge, `'w'` scrive (sovrascrive), `'a'` aggiunge alla fine. `'w'` cancella il contenuto esistente!",
-                "codice_sbagliato": "with open('log.txt', 'w') as f:\n    f.write('nuova riga')  # cancella tutto il log!",
-                "codice_giusto":    "with open('log.txt', 'a') as f:\n    f.write('nuova riga\\n')  # aggiunge in fondo",
-            },
-            {
-                "titolo": "❌ Path relativo vs assoluto",
-                "testo": "Un path relativo dipende da dove esegui lo script. Usa `os.path.join()` per costruire path portabili.",
-                "codice_sbagliato": "open('data/file.txt')  # funziona solo se esegui dalla cartella giusta",
-                "codice_giusto":    "base = os.path.dirname(__file__)\npath = os.path.join(base, 'data', 'file.txt')",
-            },
-        ],
-        "quando_usarlo": "Ogni volta che devi leggere/scrivere file, navigare cartelle, salvare report, leggere configurazioni. Fondamentale per qualsiasi script di automazione reale.",
-    },
-
-
-    "errori": {
-        "analogia": """
-**Il try/except è un parafulmine.**
-
-Metti il codice *rischioso* dentro `try`. Se arriva il fulmine (eccezione), `except` lo assorbe — il resto del programma rimane in piedi.
-
-```python
-try:
-    dati = leggi_da_aws()       # potrebbe fallire
-except ConnectionError:
-    print("Rete non disponibile, riprova")
-# il programma continua da qui
-```
-
-Senza parafulmine, un singolo errore imprevisto abbatte tutto lo script.
-""",
-        "perche": """
-**Perché try/except è obbligatorio con boto3?**
-
-Il cloud non è affidabile per definizione. Ogni chiamata API può fallire:
-- Rete non disponibile
-- Credenziali scadute o insufficienti
-- Risorsa non trovata
-- Rate limiting
-
-```python
-from botocore.exceptions import ClientError
-
-def ottieni_file(bucket, chiave):
-    try:
-        r = s3.get_object(Bucket=bucket, Key=chiave)
-        return r["Body"].read()
-    except ClientError as e:
-        codice = e.response["Error"]["Code"]
-        if codice == "NoSuchKey":
-            return None      # gestito: file non esiste
-        raise               # altri errori: rilancia
-```
-
-Uno script senza try/except crasha al primo problema reale.
-""",
-        "errori_comuni": [
-            {
-                "titolo": "❌ except: generico — nasconde tutto",
-                "testo": "`except Exception:` cattura qualsiasi errore, anche quelli che non ti aspetti. Rende i bug impossibili da trovare.",
-                "codice_sbagliato": "try:\n    fai()\nexcept Exception:\n    pass  # inghiotte tutto silenziosamente",
-                "codice_giusto":    "try:\n    fai()\nexcept ValueError as e:\n    print(f'Valore errato: {e}')\nexcept KeyError as e:\n    print(f'Chiave mancante: {e}')",
-            },
-            {
-                "titolo": "❌ Try troppo grande",
-                "testo": "Proteggere 50 righe con un unico try rende impossibile capire quale riga ha fallito.",
-                "codice_sbagliato": "try:\n    # 50 righe...\nexcept Exception:\n    print('Qualcosa è andato storto')",
-                "codice_giusto":    "config = leggi_config()   # sicuro, fuori dal try\ntry:\n    r = s3.get_object(**config)  # solo questa può fallire\nexcept ClientError as e:\n    gestisci(e)",
-            },
-            {
-                "titolo": "❌ Eccezione sbagliata",
-                "testo": "Ogni operazione lancia tipi di eccezione specifici. Catturare il tipo sbagliato = non catturare nulla.",
-                "codice_sbagliato": "try:\n    x = 10 / 0\nexcept ValueError:   # ZeroDivisionError non è ValueError!",
-                "codice_giusto":    "try:\n    x = 10 / 0\nexcept ZeroDivisionError:\n    print('Divisione per zero')",
-            },
-        ],
-        "quando_usarlo": "Ogni volta che interagisci col mondo esterno: rete, file, API, database. NON per logica di business — quella si gestisce con if/else.",
-    },
-
-    "kwargs_unpacking": {
-        "analogia": """
-**`**kwargs` è come un modulo di configurazione a firma variabile.**
-
-Chiami un servizio AWS: a volte passi solo `Bucket`, a volte aggiungi `Key`, `MaxKeys`, `Delimiter`.
-La firma non cambia — il servizio accetta tutto quello che gli mandi come dizionario.
-
-```python
-def configura(**opzioni):
-    for k, v in opzioni.items():
-        print(f"{k}: {v}")
-
-configura(regione="eu-west-1", servizio="s3", timeout=30)
-```
-
-`**kwargs` cattura tutto come dizionario. `*args` cattura tutto come tupla.
-""",
-        "perche": """
-**Perché kwargs è fondamentale con boto3?**
-
-Ogni metodo boto3 accetta decine di parametri opzionali. Il pattern professionale:
-
-```python
-params = {"Bucket": bucket_name, "Key": file_path}
-if version_id:
-    params["VersionId"] = version_id   # aggiunto solo se serve
-
-risposta = s3.get_object(**params)     # ** spacchetta il dict
-```
-
-Costruisci la chiamata dinamicamente invece di annidare if/else nella signature.
-""",
-        "errori_comuni": [
-            {
-                "titolo": "❌ Dict senza ** a boto3",
-                "testo": "Senza `**`, passi il dizionario come argomento posizionale — TypeError immediato.",
-                "codice_sbagliato": "params = {'Bucket': 'test'}\ns3.get_object(params)    # TypeError",
-                "codice_giusto":    "params = {'Bucket': 'test'}\ns3.get_object(**params)  # corretto",
-            },
-            {
-                "titolo": "❌ Confondere *args e **kwargs",
-                "testo": "`*args` → tupla di positional. `**kwargs` → dict di keyword. Non intercambiabili.",
-                "codice_sbagliato": "def f(*kwargs):\n    print(kwargs['nome'])  # TypeError: tuple non ha chiavi",
-                "codice_giusto":    "def f(**kwargs):\n    print(kwargs.get('nome', 'N/A'))",
-            },
-            {
-                "titolo": "❌ Ordine sbagliato nella firma",
-                "testo": "L'ordine obbligatorio è: posizionali, *args, keyword-only, **kwargs.",
-                "codice_sbagliato": "def f(**kwargs, nome):  # SyntaxError",
-                "codice_giusto":    "def f(nome, **kwargs):  # posizionale prima",
-            },
-        ],
-        "quando_usarlo": "Quando una funzione deve accettare parametri variabili, o quando costruisci chiamate boto3 dinamicamente.",
-    },
-
-    "json_env": {
-        "analogia": """
-**`json` è il traduttore tra Python e il mondo esterno. `os.environ` è la cassaforte delle credenziali.**
-
-boto3 ti risponde sempre con un dizionario Python, ma sotto c'è JSON.
-Capire `json.loads` / `json.dumps` significa capire come i dati entrano ed escono dal cloud.
-
-```python
-# Risposta API → dict Python
-dati = json.loads('{"stato": "running", "costo": 0.096}')
-print(dati["stato"])   # running
-
-# Config Python → file/log
-print(json.dumps(dati, indent=2))
-```
-
-`os.environ` è dove vivono le credenziali — mai nel codice sorgente.
-""",
-        "perche": """
-**Perché JSON e env var sono il pane quotidiano del Cloud Engineer?**
-
-- Le risposte boto3 hanno struttura JSON — devi saper navigarle
-- I file di configurazione sono quasi sempre JSON o YAML
-- Le credenziali AWS vanno in variabili d'ambiente, non nel codice
-
-```python
-import os, json
-
-# Credenziali da env (boto3 le legge automaticamente)
-# export AWS_ACCESS_KEY_ID="AKIA..."
-# export AWS_DEFAULT_REGION="eu-west-1"
-
-# Config da file JSON
-with open("config.json") as f:
-    cfg = json.load(f)
-
-regione = os.environ.get("AWS_REGION", cfg["regione_default"])
-```
-""",
-        "errori_comuni": [
-            {
-                "titolo": "❌ json.loads vs json.load",
-                "testo": "`json.loads` → da stringa. `json.load` → da file. Confonderli causa TypeError.",
-                "codice_sbagliato": 'with open("cfg.json") as f:\n    dati = json.loads(f)  # TypeError: expects str',
-                "codice_giusto":    'with open("cfg.json") as f:\n    dati = json.load(f)   # corretto per file',
-            },
-            {
-                "titolo": "❌ os.environ['KEY'] su variabile mancante",
-                "testo": "`os.environ['KEY']` lancia `KeyError` se la variabile non esiste. Usa `.get()` con default.",
-                "codice_sbagliato": "regione = os.environ['AWS_REGION']  # KeyError se non impostata",
-                "codice_giusto":    "regione = os.environ.get('AWS_REGION', 'eu-west-1')  # default sicuro",
-            },
-            {
-                "titolo": "❌ Credenziali nel codice sorgente",
-                "testo": "Hardcodare access key nel codice è un rischio di sicurezza grave — basta un commit pubblico.",
-                "codice_sbagliato": 'client = boto3.client("s3", aws_access_key_id="AKIA123...")  # MAI',
-                "codice_giusto":    '# export AWS_ACCESS_KEY_ID="AKIA123..."\nclient = boto3.client("s3")  # legge da env auto',
-            },
-        ],
-        "quando_usarlo": "Ogni volta che leggi/scrivi configurazioni, parsi risposte API, o gestisci credenziali e segreti.",
-    },
-
-    "comprehensions": {
-        "analogia": """
-**La comprehension è una fabbrica in una riga.**
-
-Invece di costruire una lista passo dopo passo con un loop, la descrivi in una frase:
-*"dammi tutti gli X che soddisfano Y, trasformati in Z".*
-
-```python
-# Loop classico
-running = []
-for ist in istanze:
-    if ist["stato"] == "running":
-        running.append(ist["id"])
-
-# Comprehension — stessa cosa, una riga
-running = [ist["id"] for ist in istanze if ist["stato"] == "running"]
-```
-
-Più leggibile, più veloce, più Pythonic.
-""",
-        "perche": """
-**Perché le comprehension dominano il codice boto3 professionale?**
-
-Le risposte boto3 sono liste di dizionari. Le comprehension permettono di
-filtrare, estrarre e trasformare in modo conciso:
-
-```python
-# Estrai tutti gli ID delle istanze running
-ids = [i["InstanceId"] for i in istanze if i["State"]["Name"] == "running"]
-
-# Mappa nome → stato (dict comprehension)
-stati = {i["InstanceId"]: i["State"]["Name"] for i in istanze}
-
-# Costo totale con generator expression
-totale = sum(b["size_gb"] * 0.023 for b in buckets)
-```
-
-| Tipo | Sintassi | Output |
-|------|----------|--------|
-| List | `[expr for x in it if cond]` | lista |
-| Dict | `{k: v for x in it}` | dizionario |
-| Set  | `{expr for x in it}` | insieme |
-| Gen  | `(expr for x in it)` | iteratore lazy |
-""",
-        "errori_comuni": [
-            {
-                "titolo": "❌ Condizione dopo l'espressione, non prima",
-                "testo": "Il `if` di filtro va DOPO il `for`, non prima dell'espressione.",
-                "codice_sbagliato": "[if x > 0: x for x in lista]  # SyntaxError",
-                "codice_giusto":    "[x for x in lista if x > 0]   # if DOPO il for",
-            },
-            {
-                "titolo": "❌ Comprehension per effetti collaterali",
-                "testo": "Le comprehension servono per creare collezioni, non per eseguire azioni. Usa un for loop se non ti serve il risultato.",
-                "codice_sbagliato": "[print(x) for x in lista]  # crea una lista di None inutile",
-                "codice_giusto":    "for x in lista:\n    print(x)  # loop esplicito per effetti collaterali",
-            },
-            {
-                "titolo": "❌ Comprensioni annidate illeggibili",
-                "testo": "Più di un livello di nesting in una comprehension diventa illeggibile. Spezzala in più righe o usa loop.",
-                "codice_sbagliato": "[y for x in matrix for y in x if y > 0 if y < 10]  # illeggibile",
-                "codice_giusto":    "# Spezza o usa loop espliciti quando è più chiaro",
-            },
-        ],
-        "quando_usarlo": "Per creare liste/dict/set filtrando o trasformando sequenze. Evitale se la logica è complessa — un loop esplicito è più chiaro.",
-    },
-
-    "builtins": {
-        "analogia": """
-**enumerate, zip, sorted sono gli attrezzi che i falegnami esperti usano senza pensarci.**
-
-I principianti scrivono loop con indici manuali. I professionisti usano questi built-in
-perché esprimono l'*intenzione* del codice, non i meccanismi.
-
-```python
-# Principiante
-for i in range(len(bucket_list)):
-    print(f"{i}: {bucket_list[i]}")
-
-# Professionista
-for i, bucket in enumerate(bucket_list, start=1):
-    print(f"{i}: {bucket}")
-```
-""",
-        "perche": """
-**Questi built-in appaiono ogni giorno nel codice boto3:**
-
-```python
-# enumerate — per log numerati
-for n, ist in enumerate(istanze, start=1):
-    print(f"{n}/{len(istanze)} → {ist['InstanceId']}")
-
-# zip — per abbinare due liste (es. nomi e ARN)
-for nome, arn in zip(nomi_bucket, arn_list):
-    print(f"{nome}: {arn}")
-
-# sorted con key — per ordinare risorse per costo
-per_costo = sorted(istanze, key=lambda x: x["costo_ora"], reverse=True)
-
-# None safety — accesso sicuro a campi opzionali
-ip = istanza.get("PublicIpAddress")
-if ip is not None:
-    print(f"IP: {ip}")
-```
-""",
-        "errori_comuni": [
-            {
-                "titolo": "❌ Confronto con == None invece di is None",
-                "testo": "`None` è un singleton — il confronto corretto è `is None`, non `== None`.",
-                "codice_sbagliato": "if valore == None:  # funziona ma è scorretto",
-                "codice_giusto":    "if valore is None:  # idiomatico Python",
-            },
-            {
-                "titolo": "❌ sorted modifica la lista originale",
-                "testo": "`sorted()` ritorna una nuova lista. `list.sort()` modifica in-place. Confonderli causa bug silenziosi.",
-                "codice_sbagliato": "sorted(lista)  # risultato ignorato! lista non cambia",
-                "codice_giusto":    "ordinata = sorted(lista)  # salva il risultato",
-            },
-            {
-                "titolo": "❌ zip si ferma alla lista più corta",
-                "testo": "`zip` si ferma alla lista più corta. Se le liste hanno lunghezze diverse, usa `itertools.zip_longest`.",
-                "codice_sbagliato": "list(zip([1,2,3], ['a','b']))  # [(1,'a'),(2,'b')] — 3 perso!",
-                "codice_giusto":    "from itertools import zip_longest\nlist(zip_longest([1,2,3], ['a','b'], fillvalue='?'))",
-            },
-        ],
-        "quando_usarlo": "enumerate quando hai bisogno di indice + valore. zip per iterare su più liste in parallelo. sorted quando l'ordine conta. is None per controlli di esistenza.",
-    },
-
-    "setup_env": {
-        "analogia": """
-**Il venv è una stanza pulita per ogni progetto.**
-
-Senza ambienti virtuali, tutte le librerie di tutti i tuoi progetti convivono
-nella stessa stanza. La versione di boto3 che serve al progetto A rompe il progetto B.
-
-```bash
-python -m venv .venv          # crea la stanza
-source .venv/bin/activate     # entra nella stanza (Linux/Mac)
-.venv\\Scripts\\activate        # entra nella stanza (Windows)
-pip install boto3 streamlit   # installa SOLO in questa stanza
-```
-
-Ogni progetto ha la sua stanza. Nessun conflitto.
-""",
-        "perche": """
-**Perché venv e pip sono il primo passo — non l'ultimo.**
-
-```bash
-# Installa dipendenze
-pip install -r requirements.txt
-
-# Congela le versioni esatte (riproducibilità)
-pip freeze > requirements.txt
-
-# Versioni moderne (più veloci di pip)
-pip install uv
-uv pip install boto3
-```
-
-Senza requirements.txt il codice funziona sul tuo PC ma non in produzione.
-Con requirements.txt il deploy è deterministico.
-""",
-        "errori_comuni": [
-            {
-                "titolo": "❌ pip install senza venv attivo",
-                "testo": "Installa a livello di sistema — rompe altri progetti o richiede sudo.",
-                "codice_sbagliato": "# terminale senza venv attivo\npip install boto3  # va nel Python di sistema",
-                "codice_giusto":    "source .venv/bin/activate  # prima attiva\npip install boto3           # poi installa",
-            },
-            {
-                "titolo": "❌ Committare .venv su git",
-                "testo": "La cartella .venv pesa centinaia di MB e non è portabile tra sistemi.",
-                "codice_sbagliato": "git add .venv  # centinaia di MB nel repo",
-                "codice_giusto":    "echo '.venv/' >> .gitignore\ngit add requirements.txt  # solo questo",
-            },
-            {
-                "titolo": "❌ requirements.txt senza versioni",
-                "testo": "`pip freeze` include le versioni esatte. Senza, `pip install` prende l'ultima — che potrebbe rompere tutto.",
-                "codice_sbagliato": "# requirements.txt\nboto3\nstreamlit",
-                "codice_giusto":    "boto3==1.34.0\nstreamlit==1.40.0",
-            },
-        ],
-        "quando_usarlo": "Sempre — ogni progetto Python merita il suo venv. Non è opzionale, è igiene.",
-    },
-
-    "tipi_operatori": {
-        "analogia": """
-**Il casting è come il cambio valuta: stesso valore, formato diverso.**
-
-L'utente ti manda sempre stringhe. Il computer vuole numeri per fare calcoli.
-`int()`, `float()`, `str()` sono i cambiavalute.
-
-```python
-eta_str = "28"          # dall'input utente
-eta_int = int(eta_str)  # adesso puoi fare calcoli
-print(eta_int + 1)      # 29
-```
-""",
-        "perche": """
-**Perché casting e operatori avanzati compaiono ovunque:**
-
-```python
-# Ternary — if/else in una riga
-stato = "attiva" if istanza["running"] else "spenta"
-
-# Walrus := — assegna e controlla insieme
-import re
-if m := re.search(r'i-\\w+', log_line):
-    print(f"ID trovato: {m.group()}")
-
-# Casting da env var (sempre stringhe)
-timeout = int(os.environ.get("TIMEOUT", "30"))
-max_retry = float(os.environ.get("RETRY_DELAY", "1.5"))
-```
-""",
-        "errori_comuni": [
-            {
-                "titolo": "❌ int() su float-string",
-                "testo": '`int("3.14")` fallisce — devi passare prima da `float()`.',
-                "codice_sbagliato": 'int("3.14")   # ValueError',
-                "codice_giusto":    'int(float("3.14"))  # 3',
-            },
-            {
-                "titolo": '❌ Confondere "0" con 0',
-                "testo": '`bool("0")` è `True` — la stringa non è vuota! `bool(0)` è `False`.',
-                "codice_sbagliato": 'debug = os.environ.get("DEBUG", "0")\nif debug:   # True anche con "0"!',
-                "codice_giusto":    'debug = os.environ.get("DEBUG", "0") == "1"',
-            },
-            {
-                "titolo": "❌ / vs // per la divisione",
-                "testo": "`/` restituisce sempre float. `//` è divisione intera. `%` è il resto.",
-                "codice_sbagliato": "pagine = 100 / 10   # 10.0 (float)\nrange(pagine)       # TypeError",
-                "codice_giusto":    "pagine = 100 // 10  # 10 (int)\nrange(pagine)       # ok",
-            },
-        ],
-        "quando_usarlo": "Ogni volta che leggi dati dall'esterno (input utente, env var, file) devi castare. Il ternary quando l'if/else è semplice e stai assegnando un valore.",
-    },
-
-    "scope_closures": {
-        "analogia": """
-**LEGB è come cercare le chiavi di casa.**
-
-Prima guardi le tue tasche (Local), poi la borsa (Enclosing), poi il cassetto (Global), poi lo zaino comune (Built-in).
-Python fa lo stesso con i nomi delle variabili.
-
-```python
-x = "globale"
-
-def outer():
-    x = "enclosing"
-    def inner():
-        x = "locale"
-        print(x)   # cerca Local → trova "locale"
-    inner()
-    print(x)       # cerca Local → non c'è → Enclosing → trova "enclosing"
-
-outer()
-print(x)           # cerca Global → trova "globale"
-```
-""",
-        "perche": """
-**Closures e lambda sono usati ogni giorno:**
-
-```python
-# Lambda — funzione anonima in una riga
-istanze_ordinate = sorted(istanze, key=lambda x: x["costo_ora"])
-
-# Closure — una funzione che ricorda il suo ambiente
-def make_tagger(prefisso):
-    def tagger(risorsa):
-        return f"{prefisso}-{risorsa}"
-    return tagger
-
-prod_tag = make_tagger("prod")
-print(prod_tag("web-server"))   # prod-web-server
-```
-""",
-        "errori_comuni": [
-            {
-                "titolo": "❌ Modificare una globale senza `global`",
-                "testo": "Dentro una funzione, assegnare a un nome crea sempre una variabile locale — non modifica la globale.",
-                "codice_sbagliato": "contatore = 0\ndef incrementa():\n    contatore += 1   # UnboundLocalError!",
-                "codice_giusto":    "contatore = 0\ndef incrementa():\n    global contatore\n    contatore += 1",
-            },
-            {
-                "titolo": "❌ Lambda con side effect",
-                "testo": "Lambda è per espressioni semplici. Se hai bisogno di più righe o side effect, usa `def`.",
-                "codice_sbagliato": "fn = lambda x: print(x); return x  # SyntaxError",
-                "codice_giusto":    "def fn(x):\n    print(x)\n    return x",
-            },
-            {
-                "titolo": "❌ Closure che cattura variabile del loop",
-                "testo": "La closure cattura il *riferimento* alla variabile, non il valore al momento della creazione.",
-                "codice_sbagliato": "funzioni = [lambda: i for i in range(3)]\nprint([f() for f in funzioni])  # [2, 2, 2]",
-                "codice_giusto":    "funzioni = [lambda i=i: i for i in range(3)]\nprint([f() for f in funzioni])  # [0, 1, 2]",
-            },
-        ],
-        "quando_usarlo": "Lambda per key= in sorted/map/filter quando l'espressione è breve. global/nonlocal raramente — preferisci classi o return. Closure quando vuoi incapsulare stato senza una classe.",
-    },
-
-    "tuple_immutabilita": {
-        "analogia": """
-**La tupla è cemento. La lista è argilla.**
-
-Argilla (lista) — puoi aggiungere, togliere, modificare.
-Cemento (tupla) — una volta solidificato, non cambia più. Ma è più solido, più veloce, più sicuro da condividere.
-
-```python
-lista  = [1, 2, 3]   # argilla: modificabile
-lista[0] = 99        # ok
-
-tupla  = (1, 2, 3)   # cemento: immutabile
-tupla[0] = 99        # TypeError!
-```
-""",
-        "perche": """
-**Quando usare tuple e perché copy/deepcopy importano:**
-
-```python
-# Tuple unpacking — elegante e diretto
-latitudine, longitudine = (45.07, 7.69)
-nome, *resto = ("Lorenzo", "dev", "Torino")
-
-# Chiave di dizionario (le liste non possono esserlo)
-cache = {}
-cache[(45.07, 7.69)] = "Torino"  # tupla come chiave
-
-# copy vs deepcopy
-import copy
-originale = {"lista": [1, 2, 3]}
-superficiale = copy.copy(originale)
-profonda     = copy.deepcopy(originale)
-
-superficiale["lista"].append(4)  # modifica ANCHE originale!
-profonda["lista"].append(5)      # non tocca originale
-```
-""",
-        "errori_comuni": [
-            {
-                "titolo": "❌ Tupla da un elemento senza virgola",
-                "testo": "`(42)` è solo `42` tra parentesi. `(42,)` è una tupla con un elemento.",
-                "codice_sbagliato": "t = (42)\nprint(type(t))  # <class 'int'>",
-                "codice_giusto":    "t = (42,)\nprint(type(t))  # <class 'tuple'>",
-            },
-            {
-                "titolo": "❌ Modificare un elemento mutabile dentro una tupla",
-                "testo": "La tupla è immutabile, ma se contiene una lista, la lista è ancora modificabile.",
-                "codice_sbagliato": "t = ([1, 2], 'ok')\nt[0].append(3)  # funziona! t[0] è ancora [1,2,3]",
-                "codice_giusto":    "# Usa tuple di soli immutabili se hai bisogno di vera immutabilità",
-            },
-            {
-                "titolo": "❌ copy() su strutture annidate",
-                "testo": "`copy.copy()` è superficiale: copia il container ma condivide gli oggetti interni.",
-                "codice_sbagliato": "a = {'k': [1,2,3]}\nb = copy.copy(a)\nb['k'].append(4)  # modifica anche a['k']!",
-                "codice_giusto":    "b = copy.deepcopy(a)  # indipendente a tutti i livelli",
-            },
-        ],
-        "quando_usarlo": "Tuple per dati che non devono cambiare (coordinate, chiavi composite, ritorni multipli). deepcopy quando devi clonare strutture annidate senza rischi.",
-    },
-
-    "controllo_avanzato": {
-        "analogia": """
-**break è l'uscita d'emergenza. continue è il filtraggio. else è la conferma.**
-
-```python
-# break — esci appena trovi quello che cerchi
-for ist in istanze:
-    if ist["stato"] == "running":
-        prima_running = ist
-        break   # inutile continuare
-
-# continue — salta i casi non interessanti
-for ist in istanze:
-    if ist["stato"] == "stopped":
-        continue   # non mi interessa
-    processa(ist)
-
-# for/else — else esegue SOLO se il loop non ha fatto break
-for ist in istanze:
-    if ist["id"] == target_id:
-        print("Trovato!")
-        break
-else:
-    print("Non trovato — cercalo in un'altra regione")
-```
-""",
-        "perche": """
-**match/case — Python 3.10+ — per classificare strutture:**
-
-```python
-# Classifica risposte HTTP
-def gestisci(codice):
-    match codice:
-        case 200: return "OK"
-        case 404: return "Non trovato"
-        case 403: return "Accesso negato"
-        case c if c >= 500: return f"Errore server ({c})"
-        case _: return "Codice sconosciuto"
-
-# Match su strutture boto3
-match risposta.get("State", {}).get("Name"):
-    case "running":  avvia_monitoraggio()
-    case "stopped":  notifica_team()
-    case _:          log_stato_insolito()
-```
-""",
-        "errori_comuni": [
-            {
-                "titolo": "❌ break fuori da un loop",
-                "testo": "`break` e `continue` funzionano solo dentro for/while.",
-                "codice_sbagliato": "if condizione:\n    break  # SyntaxError fuori da loop",
-                "codice_giusto":    "for x in lista:\n    if condizione:\n        break",
-            },
-            {
-                "titolo": "❌ continue in while senza aggiornare la variabile",
-                "testo": "`continue` salta il resto del corpo — se aggiorni la variabile in fondo, il loop diventa infinito.",
-                "codice_sbagliato": "n = 0\nwhile n < 5:\n    if n == 3: continue\n    n += 1   # non raggiunto quando n==3 → loop infinito",
-                "codice_giusto":    "n = 0\nwhile n < 5:\n    n += 1\n    if n == 3: continue\n    print(n)",
-            },
-            {
-                "titolo": "❌ for/else male interpretato",
-                "testo": "Il `else` del for NON significa 'se il for è vuoto'. Esegue SEMPRE tranne se è avvenuto un break.",
-                "codice_sbagliato": "# pensando che else = 'lista vuota'\nfor x in []:  # else esegue\n    pass\nelse:\n    print('Vuota')  # esegue, ma anche se la lista ha elementi!",
-                "codice_giusto":    "# else = 'non è avvenuto break'\n# Per lista vuota: if not lista:",
-            },
-        ],
-        "quando_usarlo": "break per uscire appena trovi. continue per saltare casi non interessanti (più leggibile di if annidati). for/else per ricerche. match/case per classificare valori o strutture (Python 3.10+).",
-    },
-
-    "generatori": {
-        "analogia": """
-**Il generatore è un nastro trasportatore lazy.**
-
-Una lista carica tutto in memoria subito.
-Un generatore produce un elemento alla volta — solo quando richiesto.
-
-```python
-# Lista — carica TUTTO in memoria
-tutti = [x**2 for x in range(1_000_000)]  # 8 MB di RAM
-
-# Generatore — produce uno alla volta
-gen = (x**2 for x in range(1_000_000))    # quasi 0 RAM
-primo = next(gen)                          # 0, poi 1, poi 4...
-```
-
-boto3 usa questo pattern per la paginazione: non scarichi 10.000 oggetti in una lista.
-""",
-        "perche": """
-**yield e itertools dominano il codice professionale:**
-
-```python
-# Simula boto3 paginator
-def pagina_bucket(client, bucket, prefix):
-    paginator = client.get_paginator("list_objects_v2")
-    for pagina in paginator.paginate(Bucket=bucket, Prefix=prefix):
-        for obj in pagina.get("Contents", []):
-            yield obj["Key"]   # un file alla volta, non tutti in memoria
-
-# Uso: come se fosse una lista normale
-for chiave in pagina_bucket(s3, "mio-bucket", "logs/"):
-    processa(chiave)
-
-# itertools — strumenti per iteratori
-from itertools import islice, chain, groupby
-prime_10 = list(islice(generatore_infinito(), 10))
-```
-""",
-        "errori_comuni": [
-            {
-                "titolo": "❌ Iterare due volte un generatore esaurito",
-                "testo": "Un generatore si esaurisce dopo il primo passaggio. Non puoi iterarci di nuovo.",
-                "codice_sbagliato": "gen = (x for x in range(3))\nprint(list(gen))  # [0, 1, 2]\nprint(list(gen))  # [] — esaurito!",
-                "codice_giusto":    "# Se ti serve iterare più volte, usa una lista\ndati = list(range(3))\nprint(dati)\nprint(dati)  # ok",
-            },
-            {
-                "titolo": "❌ return con valore in un generatore",
-                "testo": "In una funzione con yield, `return valore` lancia `StopIteration` — il valore è perso.",
-                "codice_sbagliato": "def gen():\n    yield 1\n    return 42   # 42 non viene mai ricevuto",
-                "codice_giusto":    "def gen():\n    yield 1\n    yield 42   # se vuoi emettere 42",
-            },
-            {
-                "titolo": "❌ list() su un generatore infinito",
-                "testo": "Un generatore infinito non si converte in lista — occupa memoria infinita e il processo si blocca.",
-                "codice_sbagliato": "def infinito():\n    n = 0\n    while True:\n        yield n; n += 1\n\nlist(infinito())  # mai finisce",
-                "codice_giusto":    "from itertools import islice\nlist(islice(infinito(), 10))  # solo i primi 10",
-            },
-        ],
-        "quando_usarlo": "Quando lavori con grandi dataset, stream di dati, o API paginate. Se non hai bisogno di tutti gli elementi contemporaneamente, un generatore è più efficiente di una lista.",
-    },
-
-    "oop_base": {
-        "analogia": """
-**La classe è il progetto architettonico. L'istanza è l'edificio costruito.**
-
-```python
-class EC2Instance:          # progetto
-    def __init__(self, id, tipo):
-        self.id   = id      # ogni edificio ha il suo ID
-        self.tipo = tipo
-
-server1 = EC2Instance("i-001", "t3.micro")   # edificio 1
-server2 = EC2Instance("i-002", "m5.large")   # edificio 2
-```
-
-`self` è il riferimento all'edificio specifico su cui stai lavorando.
-""",
-        "perche": """
-**OOP organizza codice boto3 complesso:**
-
-```python
-class AWSResource:
-    def __init__(self, id, regione):
-        self.id      = id
-        self.regione = regione
-
-    def arn(self):
-        return f"arn:aws::::{self.regione}:{self.id}"
-
-class EC2(AWSResource):
-    def __init__(self, id, regione, tipo):
-        super().__init__(id, regione)   # inizializza il genitore
-        self.tipo = tipo
-
-    def costo_mensile(self, prezzo_ora):
-        return prezzo_ora * 730
-
-server = EC2("i-001", "eu-west-1", "t3.micro")
-print(server.arn())           # eredita dal genitore
-print(server.costo_mensile(0.023))  # metodo proprio
-```
-""",
-        "errori_comuni": [
-            {
-                "titolo": "❌ Dimenticare self nei metodi",
-                "testo": "Ogni metodo deve avere `self` come primo parametro — Python lo passa automaticamente.",
-                "codice_sbagliato": "class Foo:\n    def saluta():  # manca self\n        print('ciao')\n\nFoo().saluta()  # TypeError",
-                "codice_giusto":    "class Foo:\n    def saluta(self):\n        print('ciao')",
-            },
-            {
-                "titolo": "❌ Attributo di classe vs istanza",
-                "testo": "Un attributo definito nel corpo della classe è condiviso da tutte le istanze. Usalo solo per costanti.",
-                "codice_sbagliato": "class Risorsa:\n    tags = []   # CONDIVISO tra tutte le istanze!\n\na = Risorsa(); a.tags.append('prod')\nb = Risorsa(); print(b.tags)  # ['prod'] — bug!",
-                "codice_giusto":    "class Risorsa:\n    def __init__(self):\n        self.tags = []  # ogni istanza ha la sua lista",
-            },
-            {
-                "titolo": "❌ super() senza argomenti in Python 3",
-                "testo": "In Python 3 `super()` non ha bisogno di argomenti. `super(Classe, self)` è lo stile Python 2.",
-                "codice_sbagliato": "class Figlio(Genitore):\n    def __init__(self):\n        super(Figlio, self).__init__()  # Python 2 style",
-                "codice_giusto":    "class Figlio(Genitore):\n    def __init__(self):\n        super().__init__()  # Python 3",
-            },
-        ],
-        "quando_usarlo": "Quando hai più oggetti dello stesso tipo con stato e comportamento. Per modellare risorse AWS (EC2Instance, S3Bucket, LambdaFunction) con metodi come costo(), start(), stop().",
-    },
-
-    "oop_avanzata": {
-        "analogia": """
-**I metodi dunder sono il vocabolario che Python usa per parlare con i tuoi oggetti.**
-
-Quando scrivi `print(obj)`, Python chiama `obj.__str__()`.
-Quando scrivi `len(obj)`, Python chiama `obj.__len__()`.
-Quando scrivi `a == b`, Python chiama `a.__eq__(b)`.
-
-Implementando questi metodi, i tuoi oggetti si comportano come oggetti nativi Python.
-""",
-        "perche": """
-**@property, @classmethod e dataclasses nel codice reale:**
-
-```python
-from dataclasses import dataclass, field
-
-@dataclass
-class EC2Instance:
-    id:      str
-    tipo:    str
-    regione: str = "eu-west-1"
-    tags:    list = field(default_factory=list)
-
-    @property
-    def arn(self):   # accesso come attributo, non chiamata
-        return f"arn:aws:ec2:{self.regione}::{self.id}"
-
-    @classmethod
-    def from_boto3(cls, risposta):
-        return cls(
-            id=risposta["InstanceId"],
-            tipo=risposta["InstanceType"],
-        )
-
-    def __str__(self):
-        return f"EC2({self.id}, {self.tipo})"
-```
-""",
-        "errori_comuni": [
-            {
-                "titolo": "❌ @property senza setter quando serve modifica",
-                "testo": "Una property senza setter è read-only. Tentare di assegnarle un valore lancia AttributeError.",
-                "codice_sbagliato": "class Foo:\n    @property\n    def val(self): return self._val\n\nf = Foo(); f.val = 10  # AttributeError",
-                "codice_giusto":    "@val.setter\ndef val(self, v): self._val = v",
-            },
-            {
-                "titolo": "❌ Mutable default in dataclass",
-                "testo": "In `@dataclass`, i default mutabili (liste, dict) devono usare `field(default_factory=...)`.",
-                "codice_sbagliato": "@dataclass\nclass Foo:\n    items: list = []  # ValueError",
-                "codice_giusto":    "from dataclasses import field\n@dataclass\nclass Foo:\n    items: list = field(default_factory=list)",
-            },
-            {
-                "titolo": "❌ __eq__ senza __hash__",
-                "testo": "Se ridefinisci `__eq__`, Python azzera `__hash__`. L'oggetto non può più essere usato come chiave di dict o elemento di set.",
-                "codice_sbagliato": "class Risorsa:\n    def __eq__(self, altro): return self.id == altro.id\n# ora non può stare in un set",
-                "codice_giusto":    "class Risorsa:\n    def __eq__(self, altro): return self.id == altro.id\n    def __hash__(self): return hash(self.id)",
-            },
-        ],
-        "quando_usarlo": "@property per attributi calcolati (non vuoi parentesi). @classmethod per factory method (costruttore alternativo). dataclass quando hai solo dati + pochi metodi. Dunder quando vuoi che l'oggetto si comporti come un nativo Python.",
-    },
-
-    "decoratori": {
-        "analogia": """
-**Il decoratore è l'imballaggio di una funzione.**
-
-Prendi una funzione, la avvolgi in un'altra funzione che aggiunge comportamento
-prima/dopo, e restituisci la versione migliorata.
-
-```python
-def log_chiamata(func):
-    def wrapper(*args, **kwargs):
-        print(f"Chiamo {func.__name__}")
-        risultato = func(*args, **kwargs)
-        print(f"Fine {func.__name__}")
-        return risultato
-    return wrapper
-
-@log_chiamata          # zucchero sintattico per: crea_bucket = log_chiamata(crea_bucket)
-def crea_bucket(nome):
-    print(f"Bucket {nome} creato")
-```
-""",
-        "perche": """
-**I decoratori standard che userai ogni giorno:**
-
-```python
-import functools
-
-# @functools.lru_cache — memoization gratuita
-@functools.lru_cache(maxsize=128)
-def get_ami_id(regione):
-    # chiamata boto3 costosa
-    return ec2.describe_images(...)["Images"][0]["ImageId"]
-
-# @property — già visto in OOP
-# @staticmethod, @classmethod — già visti
-
-# Retry decorator custom
-def retry(n=3):
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            for tentativo in range(n):
-                try:
-                    return func(*args, **kwargs)
-                except Exception as e:
-                    if tentativo == n - 1: raise
-            return wrapper
-        return decorator
-    return decorator
-
-@retry(n=3)
-def chiama_api():
-    ...
-```
-""",
-        "errori_comuni": [
-            {
-                "titolo": "❌ Dimenticare @functools.wraps",
-                "testo": "Senza `@wraps`, il nome e la docstring della funzione originale vengono persi.",
-                "codice_sbagliato": "def decorator(func):\n    def wrapper(*a, **kw): return func(*a, **kw)\n    return wrapper\n\n@decorator\ndef mia_funzione(): pass\nprint(mia_funzione.__name__)  # 'wrapper' — sbagliato!",
-                "codice_giusto":    "from functools import wraps\ndef decorator(func):\n    @wraps(func)\n    def wrapper(*a, **kw): return func(*a, **kw)\n    return wrapper",
-            },
-            {
-                "titolo": "❌ Chiamare il decoratore invece di passarlo",
-                "testo": "`@decorator()` richiede che `decorator` ritorni un decoratore. `@decorator` usa `decorator` direttamente.",
-                "codice_sbagliato": "@log_chiamata()   # errore se log_chiamata non accetta argomenti",
-                "codice_giusto":    "@log_chiamata    # senza parentesi se non ha parametri",
-            },
-            {
-                "titolo": "❌ lru_cache su funzione con argomenti non hashable",
-                "testo": "`lru_cache` richiede argomenti hashable. Liste e dizionari non lo sono.",
-                "codice_sbagliato": "@lru_cache\ndef f(lista): ...  # TypeError: lista non è hashable",
-                "codice_giusto":    "@lru_cache\ndef f(tupla): ...  # ok, tuple sono hashable",
-            },
-        ],
-        "quando_usarlo": "Logging, timing, retry, autenticazione, caching — ogni comportamento trasversale che si ripete su più funzioni. @lru_cache per funzioni pure con input ripetuti.",
-    },
-
-    "moduli_package": {
-        "analogia": """
-**Il modulo è un capitolo. Il package è il libro.**
-
-`import boto3` carica il capitolo boto3 nel tuo script.
-`from datetime import date` estrae solo la pagina `date` dal capitolo `datetime`.
-
-```
-mio_progetto/
-├── __init__.py       # questo è un package
-├── aws_utils.py      # questo è un modulo
-└── config.py         # questo è un modulo
-```
-
-```python
-from mio_progetto.aws_utils import crea_client
-```
-""",
-        "perche": """
-**logging e collections: due librerie standard indispensabili:**
-
-```python
-import logging
-
-logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-logger = logging.getLogger(__name__)
-
-logger.info("Avvio script")
-logger.warning("Credenziali scadono tra 7 giorni")
-logger.error("Connessione fallita: %s", errore)
-
-# collections
-from collections import Counter, defaultdict
-
-# Counter — conta occorrenze
-errori = Counter(["NameError", "KeyError", "NameError", "TypeError"])
-print(errori.most_common(2))  # [('NameError', 2), ('KeyError', 1)]
-
-# defaultdict — dict con valore di default automatico
-per_regione = defaultdict(list)
-for ist in istanze:
-    per_regione[ist["regione"]].append(ist["id"])
-```
-""",
-        "errori_comuni": [
-            {
-                "titolo": "❌ Codice eseguito all'import senza guardia __name__",
-                "testo": "Tutto il codice a livello modulo gira all'import. Senza guardia, il tuo script si esegue anche quando lo importi.",
-                "codice_sbagliato": "# script.py\nresult = calcola_tutto()  # gira anche con 'import script'",
-                "codice_giusto":    "if __name__ == '__main__':\n    result = calcola_tutto()",
-            },
-            {
-                "titolo": "❌ print() invece di logging",
-                "testo": "`print()` non ha livelli, non ha timestamp, non è filtrabile. In produzione usa sempre `logging`.",
-                "codice_sbagliato": "print('Errore:', e)  # invisibile nei log di CloudWatch",
-                "codice_giusto":    "logger.error('Errore: %s', e)  # CloudWatch lo cattura",
-            },
-            {
-                "titolo": "❌ Import circolare",
-                "testo": "Se A importa B e B importa A, Python si blocca in un loop. Spezza la dipendenza con un terzo modulo.",
-                "codice_sbagliato": "# a.py: from b import qualcosa\n# b.py: from a import qualcosa  ← circolare",
-                "codice_giusto":    "# Sposta le dipendenze comuni in c.py\n# a.py e b.py importano da c.py",
-            },
-        ],
-        "quando_usarlo": "logging sempre invece di print nei progetti seri. __name__ guard in ogni script che potrebbe anche essere importato. collections quando conti o aggreghi dati.",
-    },
-
-    "eccezioni_avanzate": {
-        "analogia": """
-**`raise` è come il campanello d'allarme. Le eccezioni custom sono i cartelli che spiegano quale allarme suona.**
-
-```python
-class BudgetSuperatoError(Exception):
-    def __init__(self, budget, spesa):
-        self.budget = budget
-        self.spesa  = spesa
-        super().__init__(f"Spesa {spesa:.2f}€ supera il budget {budget:.2f}€")
-
-def verifica_costo(costo, budget):
-    if costo > budget:
-        raise BudgetSuperatoError(budget, costo)
-```
-
-Ora chi chiama la funzione può catturare `BudgetSuperatoError` con informazioni precise.
-""",
-        "perche": """
-**assert, contextlib e chaining nel codice reale:**
-
-```python
-# assert — pre/post condizioni (disabilitabile con -O)
-def divide(a, b):
-    assert b != 0, "Il divisore non può essere zero"
-    return a / b
-
-# contextlib — context manager senza classe
-from contextlib import contextmanager
-
-@contextmanager
-def sessione_aws(regione):
-    logger.info(f"Apertura sessione {regione}")
-    try:
-        yield boto3.Session(region_name=regione)
-    finally:
-        logger.info("Sessione chiusa")
-
-with sessione_aws("eu-west-1") as sess:
-    s3 = sess.client("s3")
-
-# Exception chaining
-try:
-    dati = json.loads(risposta_raw)
-except json.JSONDecodeError as e:
-    raise ValueError("Risposta API non valida") from e
-```
-""",
-        "errori_comuni": [
-            {
-                "titolo": "❌ Usare assert per validazione di input utente",
-                "testo": "`assert` è disabilitato con `python -O`. Non usarlo per validazione — usa `raise` con eccezione esplicita.",
-                "codice_sbagliato": "assert len(nome) > 0, 'Nome obbligatorio'  # disabilitato in produzione!",
-                "codice_giusto":    "if not nome:\n    raise ValueError('Nome obbligatorio')",
-            },
-            {
-                "titolo": "❌ raise senza from perde il contesto",
-                "testo": "Quando rilanchi un'eccezione dentro un except, usa `raise ... from e` per preservare la traccia originale.",
-                "codice_sbagliato": "try:\n    op()\nexcept SomeError:\n    raise AltroError()  # traccia originale persa",
-                "codice_giusto":    "except SomeError as e:\n    raise AltroError() from e  # catena visibile",
-            },
-            {
-                "titolo": "❌ contextmanager senza try/finally",
-                "testo": "Il codice dopo `yield` non gira se viene lanciata un'eccezione. Il `finally` garantisce la pulizia.",
-                "codice_sbagliato": "@contextmanager\ndef apri():\n    risorsa = acquisisci()\n    yield risorsa\n    rilascia(risorsa)  # non gira se c'è eccezione!",
-                "codice_giusto":    "@contextmanager\ndef apri():\n    risorsa = acquisisci()\n    try:\n        yield risorsa\n    finally:\n        rilascia(risorsa)",
-            },
-        ],
-        "quando_usarlo": "raise per comunicare errori con significato. Eccezioni custom per errori di dominio (BudgetSuperatoError, ResourceNotFoundError). assert solo per invarianti di sviluppo. contextlib per gestire risorse in modo pulito.",
-    },
-}
-
-
-APPROCCIO = {
-    "variabili": {
-        "domanda_chiave": "Cosa sto etichettando e perché mi servirà dopo?",
-        "prima_di_codificare": [
-            "Che tipo di valore devo conservare? (testo, numero, vero/falso?)",
-            "Lo userò più di una volta nel codice?",
-            "Il valore è fisso o può cambiare nel tempo?",
-            "Che nome lo descrive meglio? (evita: x, a, val, temp)",
-        ],
-        "pattern": [
-            "Definisci prima → usa dopo. Mai il contrario.",
-            "Calcola → salva in variabile → riusa la variabile",
-            "Costanti di configurazione all'inizio del file, in MAIUSCOLO",
-        ],
-        "checklist": [
-            "Il nome è descrittivo (non x, a, dato)?",
-            "Definita PRIMA di essere usata?",
-            "Uso `=` per assegnare e `==` per confrontare?",
-            "Il tipo è quello giusto? (stringa vs numero vs booleano)",
-        ],
-    },
-    "stringhe": {
-        "domanda_chiave": "Ho bisogno di costruire, estrarre o trasformare questo testo?",
-        "prima_di_codificare": [
-            "Devo costruire testo dinamico? → f-string",
-            "Devo estrarre una parte? → slicing `[inizio:fine]` o `.split()`",
-            "Devo trasformare? → `.upper()`, `.lower()`, `.replace()`",
-            "Il confronto è case-sensitive? Normalizza con `.lower()` prima",
-        ],
-        "pattern": [
-            "ARN → `arn.split(':')[3]` per estrarre la regione",
-            "Testo dinamico → `f'Bucket: {nome}'`",
-            "Cerca dentro → `'ERROR' in riga`",
-            "Pulisci spazi → `.strip()` prima di confrontare",
-        ],
-        "checklist": [
-            "Le virgolette sono bilanciate?",
-            "Sto confrontando con lo stesso case?",
-            "Le f-string hanno le graffe `{}`?",
-            "Stringhe immutabili: `.upper()` non modifica — crea una nuova stringa",
-        ],
-    },
-    "condizioni": {
-        "domanda_chiave": "Quante strade può prendere il codice? Le ho gestite tutte?",
-        "prima_di_codificare": [
-            "Quante situazioni distinte esistono? (2, 3, N?)",
-            "Le condizioni si escludono a vicenda? → elif. Indipendenti? → if separati",
-            "Ho un caso 'tutto il resto'? → else",
-            "L'ordine dei rami importa? (dal più specifico al più generico)",
-        ],
-        "pattern": [
-            "Due casi → `if / else`",
-            "Più casi mutuamente esclusivi → `if / elif / elif / else`",
-            "Più controlli indipendenti → `if` separati (non elif)",
-            "Soglie: ordina dal valore più alto al più basso",
-        ],
-        "checklist": [
-            "Due punti `:` dopo ogni if/elif/else?",
-            "Indentazione di 4 spazi sotto ogni ramo?",
-            "Uso `==` per confrontare, non `=` per assegnare?",
-            "Qual è l'output se nessuna condizione è vera?",
-        ],
-    },
-    "cicli": {
-        "domanda_chiave": "Cosa devo costruire/raccogliere? Inizializzalo vuoto PRIMA del loop.",
-        "prima_di_codificare": [
-            "Quante volte si ripete? (numero fisso → `range`, sequenza → `for`, condizione → `while`)",
-            "Ho bisogno dell'indice o solo del valore?",
-            "Devo raccogliere risultati? → inizializza `[]` o `0` prima del loop",
-            "C'è un caso in cui il loop non dovrebbe girare?",
-        ],
-        "pattern": [
-            "Itera valori → `for x in lista`",
-            "Itera con indice → `for i, x in enumerate(lista)`",
-            "Accumula → `totale = 0` prima, `totale += x` dentro",
-            "Filtra → `if condizione:` dentro il for",
-            "Trasforma → `risultati.append(f(x))` o list comprehension `[f(x) for x in lista]`",
-        ],
-        "checklist": [
-            "`range(n)` va da 0 a n-1. Per 1→n: `range(1, n+1)`",
-            "Nel while: aggiorno la variabile di controllo?",
-            "Sto modificando la lista su cui sto iterando? (usa list comprehension invece)",
-            "Il loop termina sempre? (no loop infinito?)",
-        ],
-    },
-    "funzioni": {
-        "domanda_chiave": "Se questo codice cambia domani, quanti posti devo modificare?",
-        "prima_di_codificare": [
-            "Questo codice lo riscriverò più di una volta? → fai una funzione",
-            "Quanti input riceve? (parametri) Quali hanno senso come default?",
-            "Cosa restituisce? (`return` valore) o solo stampa?",
-            "Ha una responsabilità sola? Se fa N cose → N funzioni",
-        ],
-        "pattern": [
-            "Nome che descrive l'azione: `calcola_`, `ottieni_`, `verifica_`, `salva_`",
-            "Una funzione = una responsabilità sola",
-            "Default parameters per valori comuni: `def f(regione='eu-west-1')`",
-            "Testa con input semplici prima di usarla in contesti complessi",
-        ],
-        "checklist": [
-            "Ha `return` se deve dare un valore?",
-            "I parametri hanno nomi descrittivi?",
-            "Fa una sola cosa?",
-            "L'ho chiamata con input limite? (0, lista vuota, None)",
-        ],
-    },
-    "liste_dizionari": {
-        "domanda_chiave": "Cosa entra? (lista/dict) Cosa devo ottenere? Filtrare, trasformare o navigare?",
-        "prima_di_codificare": [
-            "Sequenza ordinata? → lista. Coppie chiave-valore? → dizionario",
-            "Devo cercare per posizione o per nome?",
-            "La risposta boto3: è una lista di dict o un dict con liste annidate?",
-            "Devo filtrare, trasformare, o solo iterare?",
-        ],
-        "pattern": [
-            "Filtra → `[x for x in lista if condizione]`",
-            "Trasforma → `[f(x) for x in lista]`",
-            "Naviga boto3 → `risposta['Reservations'][0]['Instances']`",
-            "Accesso sicuro → `dict.get('chiave', default)` evita KeyError",
-        ],
-        "checklist": [
-            "La lista può essere vuota? Ho gestito quel caso?",
-            "La chiave del dict esiste sempre? Se no, uso `.get()`?",
-            "boto3: la risposta è una lista o un singolo elemento?",
-            "Sto modificando la lista mentre ci itero? (usa list comprehension)",
-        ],
-    },
-    "automazione": {
-        "domanda_chiave": "Cosa può andare storto con file e path? (non esiste, permessi, path errato)",
-        "prima_di_codificare": [
-            "Il file esiste già? Cosa succede se non esiste?",
-            "Devo leggere (`r`), sovrascrivere (`w`) o aggiungere (`a`)?",
-            "Il path è assoluto o relativo? Funziona su altre macchine?",
-            "Devo creare la directory prima di creare il file?",
-        ],
-        "pattern": [
-            "Sempre `with open(...)` — si chiude automaticamente",
-            "Costruisci path con `os.path.join()` non con `+`",
-            "Crea directory con `exist_ok=True`",
-            "Leggi → processa → scrivi (non mescolare lettura e scrittura dello stesso file)",
-        ],
-        "checklist": [
-            "Ho usato `with open(...)` (non `f = open(...)` senza close)?",
-            "La modalità è giusta? `w` sovrascrive tutto!",
-            "Ho gestito il caso 'file non esiste'?",
-            "Il path funziona anche su un'altra macchina?",
-        ],
-    },
-    "errori": {
-        "domanda_chiave": "Cosa faccio quando il mondo reale non si comporta come mi aspetto?",
-        "prima_di_codificare": [
-            "Cosa può andare storto? (rete, file, tipo sbagliato, chiave mancante, permessi)",
-            "Se va storto, il programma deve fermarsi o continuare?",
-            "Devo comunicare l'errore all'utente o solo loggarlo?",
-            "C'è qualcosa che deve succedere sempre, anche in caso di errore? → `finally`",
-        ],
-        "pattern": [
-            "Cattura eccezioni SPECIFICHE, non `except Exception:` generico",
-            "Boto3: `except ClientError as e` → `e.response['Error']['Code']`",
-            "Logga sempre: almeno un `print(e)` o `logging.error(e)`",
-            "`finally`: chiudi connessioni e file — esegue sempre",
-        ],
-        "checklist": [
-            "Ho identificato le eccezioni specifiche che possono accadere?",
-            "Il blocco except gestisce l'errore o lo nasconde?",
-            "C'è un `finally` per le risorse da chiudere?",
-            "Il messaggio di errore è utile per il debug?",
-        ],
-    },
-
-    "kwargs_unpacking": {
-        "domanda_chiave": "Sto costruendo questa chiamata staticamente o dinamicamente in base a condizioni?",
-        "prima_di_codificare": [
-            "I parametri sono sempre gli stessi o variano in base alla logica?",
-            "Stai leggendo codice boto3 con `**params`? → stai vedendo un dict spacchettato",
-            "La funzione deve essere flessibile? → considera `**kwargs`",
-            "Devo includere parametri opzionali solo se presenti? → costruisci dict e usa `**`",
-        ],
-        "pattern": [
-            "`params = {}; if cond: params['K'] = v` → poi `f(**params)` (chiamata dinamica)",
-            "`def f(**kwargs): kwargs.get('k', default)` per accesso sicuro ai parametri",
-            "`*lista` spacchetta come argomenti posizionali",
-            "`**dict` spacchetta come keyword arguments",
-        ],
-        "checklist": [
-            "Ho usato `**` (doppio) per dict e `*` (singolo) per liste?",
-            "Le chiavi del dict corrispondono ai nomi dei parametri della funzione?",
-            "Il dict non ha chiavi extra non accettate dalla funzione?",
-            "boto3: ho verificato quali parametri sono obbligatori vs opzionali nella doc?",
-        ],
-    },
-
-    "json_env": {
-        "domanda_chiave": "Questo dato viene dall'esterno (file, API, env)? → devo deserializzarlo. Va fuori? → devo serializzarlo.",
-        "prima_di_codificare": [
-            "Ho una stringa da convertire in dict? → `json.loads(stringa)`",
-            "Ho un dict da convertire in stringa? → `json.dumps(dict)`",
-            "Sto leggendo da file? → `json.load(file_obj)` (senza la s)",
-            "Le credenziali devono stare in env var, non nel codice",
-        ],
-        "pattern": [
-            "`os.environ.get('CHIAVE', 'default')` — sempre con default, mai KeyError",
-            "`json.dumps(obj, indent=2)` per output leggibile",
-            "Config: JSON file per defaults + env var per override in produzione",
-            "boto3 legge `AWS_*` env var automaticamente",
-        ],
-        "checklist": [
-            "Sto usando `json.loads` per stringhe o `json.load` per file?",
-            "Tutte le env var hanno un default sicuro con `.get()`?",
-            "Nessuna credenziale hardcodata nel codice?",
-            "Il JSON che genero è valido? Posso verificarlo con `json.loads(json.dumps(obj))`?",
-        ],
-    },
-
-    "comprehensions": {
-        "domanda_chiave": "Cosa devo ottenere? (lista/dict/set) Da cosa parto? Quali elementi filtro o trasformo?",
-        "prima_di_codificare": [
-            "Sto costruendo una lista? → list comprehension `[...]`",
-            "Sto costruendo un mapping? → dict comprehension `{k: v ...}`",
-            "La logica è semplice (1 filtro, 1 trasformazione)? → comprehension OK",
-            "La logica è complessa (2+ condizioni, side effect)? → loop esplicito",
-        ],
-        "pattern": [
-            "Filtra: `[x for x in lista if condizione]`",
-            "Trasforma: `[f(x) for x in lista]`",
-            "Filtra+trasforma: `[f(x) for x in lista if condizione]`",
-            "Dict: `{x['id']: x['stato'] for x in lista}`",
-            "Generator (lazy, no lista in RAM): `sum(x for x in lista)`",
-        ],
-        "checklist": [
-            "L'`if` di filtro sta DOPO il `for`, non prima dell'espressione?",
-            "Sto creando una struttura dati o eseguendo azioni? (loop per azioni)",
-            "La comprehension è leggibile in una riga? Se no, usa loop",
-            "Il tipo è giusto? `[...]` lista, `{...}` set o dict, `(...)` generator",
-        ],
-    },
-
-    "builtins": {
-        "domanda_chiave": "Ho bisogno di indice + valore? (enumerate) Di iterare su più liste? (zip) Di ordine? (sorted)",
-        "prima_di_codificare": [
-            "Ho bisogno dell'indice E del valore? → `enumerate(lista)`",
-            "Devo abbinare elementi di due liste? → `zip(lista1, lista2)`",
-            "Devo ordinare per un campo specifico? → `sorted(lista, key=lambda x: x['campo'])`",
-            "Un valore potrebbe essere `None`? → usa `is None`, non `== None`",
-        ],
-        "pattern": [
-            "`for i, val in enumerate(lista, start=1)` — numerazione da 1",
-            "`for a, b in zip(lista1, lista2)` — parallelo",
-            "`sorted(lista, key=lambda x: x['k'], reverse=True)` — decrescente",
-            "`val = obj.get('campo')` → `if val is not None: usa(val)`",
-        ],
-        "checklist": [
-            "Ho salvato il risultato di `sorted()`? (non modifica in-place)",
-            "Le due liste di `zip` hanno la stessa lunghezza?",
-            "Sto controllando `None` con `is None` (non `== None`)?",
-            "Ho usato `enumerate` invece di `range(len(lista))`?",
-        ],
-    },
-
-    "setup_env": {
-        "domanda_chiave": "Questo progetto ha un ambiente isolato con le dipendenze fisse?",
-        "prima_di_codificare": [
-            "Ho creato un venv per questo progetto?",
-            "Ho attivato il venv prima di installare?",
-            "Ho un requirements.txt aggiornato?",
-            "Il .gitignore esclude .venv/?",
-        ],
-        "pattern": [
-            "`python -m venv .venv && source .venv/bin/activate` — crea e attiva",
-            "`pip install -r requirements.txt` — installa dipendenze da file",
-            "`pip freeze > requirements.txt` — congela versioni correnti",
-            "`python -m pip install --upgrade pip` — aggiorna pip prima di tutto",
-        ],
-        "checklist": [
-            "Il terminale mostra (.venv) davanti al prompt?",
-            "requirements.txt include le versioni esatte (==)?",
-            ".venv è nel .gitignore?",
-            "Ho testato `pip install -r requirements.txt` in un venv pulito?",
-        ],
-    },
-
-    "tipi_operatori": {
-        "domanda_chiave": "Questo valore viene dall'esterno? → va castato. Sto assegnando in base a una condizione? → considera il ternario.",
-        "prima_di_codificare": [
-            "Il valore arriva come stringa (env var, input, file)? → cast esplicito",
-            "Il risultato è uno dei due valori? → ternario `x if cond else y`",
-            "Sto assegnando e verificando in un if? → walrus `:=`",
-            "Sto dividendo per ottenere un intero? → `//` non `/`",
-        ],
-        "pattern": [
-            "`int(os.environ.get('N', '10'))` — env var → int con default",
-            "`val = a if condizione else b` — ternario per assegnazione",
-            "`while chunk := f.read(1024):` — walrus per loop di lettura",
-            "`bool('0')` è True — usa `== '1'` per flag stringa",
-        ],
-        "checklist": [
-            "Ho gestito il caso in cui il cast fallisce (ValueError)?",
-            "Il ternario è leggibile in una riga, o è meglio un if/else?",
-            "Il walrus è in un contesto dove l'assegnazione è ovvia?",
-            "La divisione con `/` ritorna float — è quello che voglio?",
-        ],
-    },
-
-    "scope_closures": {
-        "domanda_chiave": "Da dove viene questo nome? (Local → Enclosing → Global → Built-in)",
-        "prima_di_codificare": [
-            "La variabile è definita nella funzione corrente? → Local",
-            "È in una funzione esterna che la racchiude? → Enclosing",
-            "È al top del modulo? → Global",
-            "Devo modificare una globale? → dichiara `global` all'inizio della funzione",
-        ],
-        "pattern": [
-            "Lambda per key semplici: `sorted(lista, key=lambda x: x['campo'])`",
-            "Closure factory: `def make_fn(param): def fn(x): return param + x; return fn`",
-            "`nonlocal` per modificare variabili di funzioni esterne (non globali)",
-            "Lambda con default `lambda i=i: i` per catturare valore del loop",
-        ],
-        "checklist": [
-            "Se ottengo UnboundLocalError, ho dimenticato `global`?",
-            "La lambda è leggibile in una riga? Se no, usa `def`",
-            "La closure cattura il valore o il riferimento?",
-            "Sto usando `global` più di una volta? → forse serve una classe",
-        ],
-    },
-
-    "tuple_immutabilita": {
-        "domanda_chiave": "Questi dati devono cambiare? Se no, usa una tupla — è più sicura e più veloce.",
-        "prima_di_codificare": [
-            "I dati cambiano dopo la creazione? Lista. Non cambiano? Tupla.",
-            "Devo usarlo come chiave di dict o in un set? → deve essere hashable → tupla",
-            "Sto clonando una struttura annidata? → deepcopy, non copy",
-            "Sto facendo unpacking multiplo? → `a, b, *resto = collezione`",
-        ],
-        "pattern": [
-            "`a, b = b, a` — swap elegante con tuple implicita",
-            "`x, y, z = punto_3d` — unpacking diretto",
-            "`lat, lon = (45.07, 7.69)` — coordinate come tupla",
-            "`import copy; clone = copy.deepcopy(obj)` — copia indipendente",
-        ],
-        "checklist": [
-            "La tupla da 1 elemento ha la virgola finale: `(42,)`?",
-            "Ho usato deepcopy se la struttura ha liste o dict annidati?",
-            "Sto usando tuple come chiave di dict? → solo con elementi immutabili",
-            "Ho bisogno di named fields? → considera `namedtuple` o `dataclass`",
-        ],
-    },
-
-    "controllo_avanzato": {
-        "domanda_chiave": "Sto cercando qualcosa? (break+else) Sto filtrando? (continue) Sto classificando? (match/case)",
-        "prima_di_codificare": [
-            "Esco appena trovo il primo match? → break",
-            "Salto elementi non interessanti? → continue (più leggibile di if annidato)",
-            "Ho bisogno di sapere se il loop è finito senza trovare? → for/else",
-            "Sto classificando un valore in N casi? → match/case (Python 3.10+)",
-        ],
-        "pattern": [
-            "`for x in lista: if cond: risultato = x; break` + `else: risultato = None`",
-            "`for x in lista: if not cond: continue; processa(x)` — filtraggio",
-            "`match valore: case A: ... case B: ... case _: ...` — default con `_`",
-            "`case c if c >= 500:` — guard condition in match",
-        ],
-        "checklist": [
-            "Il for/else è chiaro? Se confonde, usa una variabile booleana `trovato`",
-            "Il continue riduce l'indentazione? → allora è utile",
-            "match/case: ho il caso `_` come default?",
-            "Il while con continue aggiorna la variabile PRIMA del continue?",
-        ],
-    },
-
-    "generatori": {
-        "domanda_chiave": "Ho bisogno di tutti i valori in memoria o li consumo uno alla volta?",
-        "prima_di_codificare": [
-            "I dati sono enormi o potenzialmente infiniti? → generatore",
-            "Sto iterando una risposta boto3 paginata? → usare paginator + yield",
-            "Aggrego (sum, max, any)? → generator expression, non list",
-            "Ho bisogno di iterare due volte? → list(), perché i generatori si esauriscono",
-        ],
-        "pattern": [
-            "`def gen(): for x in src: yield trasforma(x)` — pipeline lazy",
-            "`sum(x**2 for x in range(n))` — aggregazione senza lista",
-            "`from itertools import islice; list(islice(gen, 10))` — prendi solo N",
-            "`yield from sotto_generatore` — delegare a un sotto-generatore",
-        ],
-        "checklist": [
-            "Ho tenuto conto che il generatore si esaurisce?",
-            "Se itero più volte, ho convertito in lista?",
-            "Il generatore infinito usa islice o condizione di uscita?",
-            "Sto usando `yield from` invece di un loop `for x in sub: yield x`?",
-        ],
-    },
-
-    "oop_base": {
-        "domanda_chiave": "Ho più oggetti dello stesso tipo con stato e comportamento? → classe.",
-        "prima_di_codificare": [
-            "Cosa rappresenta questa classe? (una risorsa, un client, un risultato?)",
-            "Quali dati ha ogni istanza? → attributi in `__init__`",
-            "Quali azioni può fare? → metodi",
-            "Condivide attributi/metodi con un'altra classe? → ereditarietà",
-        ],
-        "pattern": [
-            "`def __init__(self, *args): self.x = x` — inizializza attributi",
-            "`super().__init__(...)` — delega al genitore",
-            "Attributi di classe solo per costanti: `REGIONE_DEFAULT = 'eu-west-1'`",
-            "Metodi che non usano self → `@staticmethod`",
-        ],
-        "checklist": [
-            "Ogni metodo ha `self` come primo parametro?",
-            "Gli attributi mutabili (liste) sono in `__init__`, non nella classe?",
-            "Ho chiamato `super().__init__()` nel figlio?",
-            "La classe fa UNA cosa? Se fa troppo, spezzala",
-        ],
-    },
-
-    "oop_avanzata": {
-        "domanda_chiave": "Voglio che Python tratti il mio oggetto come un nativo? → implementa i dunder giusti.",
-        "prima_di_codificare": [
-            "Voglio `print(obj)` leggibile? → `__str__`",
-            "Voglio `repr(obj)` per debug? → `__repr__`",
-            "Voglio `len(obj)`? → `__len__`",
-            "Voglio `obj == altro`? → `__eq__` (e poi `__hash__`)",
-        ],
-        "pattern": [
-            "`@property` per attributi calcolati (senza parentesi)",
-            "`@classmethod def from_dict(cls, d)` — factory costruttore alternativo",
-            "`@dataclass` elimina `__init__`, `__repr__`, `__eq__` boilerplate",
-            "`field(default_factory=list)` per attributi mutabili in dataclass",
-        ],
-        "checklist": [
-            "Ho definito `__hash__` dopo aver definito `__eq__`?",
-            "La property ha setter se è modificabile?",
-            "Il @classmethod ha `cls` come primo parametro (non `self`)?",
-            "Il dataclass usa `field(default_factory=...)` per liste/dict?",
-        ],
-    },
-
-    "decoratori": {
-        "domanda_chiave": "Questo comportamento si ripete su più funzioni? → decoratore.",
-        "prima_di_codificare": [
-            "Il decoratore aggiunge logging/timing/retry/auth? → pattern classico",
-            "Il decoratore ha parametri? → serve una funzione che ritorna un decoratore",
-            "Sto preservando il nome e la docstring? → `@functools.wraps`",
-            "La funzione ha sempre gli stessi input? → considera `@lru_cache`",
-        ],
-        "pattern": [
-            "`def dec(func): @wraps(func) def wrapper(*a,**kw): ...; return func(*a,**kw); return wrapper`",
-            "`def dec(n): def decorator(func): ... return decorator` — con parametri",
-            "`@lru_cache(maxsize=None)` — cache illimitata per funzioni pure",
-            "`functools.partial(f, arg=val)` — funzione con argomenti parziali",
-        ],
-        "checklist": [
-            "Ho usato `@functools.wraps(func)` nel wrapper?",
-            "Il decoratore con parametri ha tre livelli di nesting?",
-            "Se uso `@lru_cache`, gli argomenti sono hashable?",
-            "Il decoratore ritorna `wrapper`, non `wrapper()`?",
-        ],
-    },
-
-    "moduli_package": {
-        "domanda_chiave": "Questo codice verrà importato o eseguito direttamente? → `__name__` guard.",
-        "prima_di_codificare": [
-            "Il modulo può essere sia importato che eseguito? → `if __name__ == '__main__':`",
-            "Sto loggando eventi? → `logging`, non `print`",
-            "Conto occorrenze? → `Counter`. Aggrego in liste/dict? → `defaultdict`",
-            "Importo da un package interno? → import relativo `from . import modulo`",
-        ],
-        "pattern": [
-            "`logger = logging.getLogger(__name__)` — logger per modulo",
-            "`logging.basicConfig(level=logging.INFO)` — configurazione base",
-            "`Counter(lista).most_common(n)` — top N elementi",
-            "`defaultdict(list); d[chiave].append(val)` — senza KeyError",
-        ],
-        "checklist": [
-            "Lo script ha `if __name__ == '__main__':` per il codice eseguibile?",
-            "Sto usando `logger.info/warning/error` invece di `print`?",
-            "Il format del log include timestamp e livello?",
-            "Ho evitato import circolari (A importa B, B importa A)?",
-        ],
-    },
-
-    "eccezioni_avanzate": {
-        "domanda_chiave": "Sto comunicando un errore di dominio? → eccezione custom. Sto garantendo cleanup? → contextmanager.",
-        "prima_di_codificare": [
-            "L'eccezione porta informazioni strutturate? → classe custom con attributi",
-            "Devo preservare la causa originale? → `raise NuovoErrore() from e`",
-            "L'assert è per invarianti di sviluppo o validazione utente? → solo invarianti",
-            "Ho una risorsa da rilasciare sempre? → contextmanager con finally",
-        ],
-        "pattern": [
-            "`class MioErrore(Exception): def __init__(self, msg, dati): super().__init__(msg); self.dati = dati`",
-            "`raise ValueError('messaggio') from causa_originale`",
-            "`@contextmanager def risorsa(): ...; yield r; finally: cleanup()`",
-            "`assert condizione, 'messaggio'` — solo per invarianti, mai per validazione",
-        ],
-        "checklist": [
-            "L'eccezione custom estende la classe giusta (ValueError, RuntimeError, ecc.)?",
-            "Ho usato `raise ... from e` per preservare il contesto?",
-            "Il contextmanager ha `try/finally` intorno allo yield?",
-            "L'assert è disabilitabile senza rompere la logica?",
-        ],
-    },
-}
+CONCETTI = {'automazione': {'analogia': '\n'
+                             '**Il tuo script è un robot in fabbrica.**\n'
+                             '\n'
+                             '`os` è il braccio che si muove tra i cassetti del filesystem.\n'
+                             '`open()` è la mano che apre e chiude scatole (file).\n'
+                             'Il for loop è il nastro trasportatore che porta ogni file al robot.\n'
+                             '\n'
+                             '```python\n'
+                             'import os\n'
+                             '\n'
+                             'for nome_file in os.listdir("/var/log/demo"):     # nastro\n'
+                             '    if nome_file.endswith(".log"):                # filtro\n'
+                             '        with open(nome_file, "r") as f:           # apri scatola\n'
+                             '            contenuto = f.read()                  # leggi\n'
+                             '            if "ERROR" in contenuto:\n'
+                             '                print(f"Problema in: {nome_file}")\n'
+                             '```\n'
+                             '\n'
+                             'Il robot non si stanca. Processa 1 file o 10.000 con lo stesso '
+                             'sforzo.\n',
+                 'perche': '\n'
+                           '**Perché automazione e file sono cruciali nel lavoro Cloud?**\n'
+                           '\n'
+                           'Scenari reali in cui userai questi strumenti:\n'
+                           '\n'
+                           '1. **Report di costo** — scarichi i dati di billing Python (CSV) e li '
+                           'elabori con Python\n'
+                           '2. **Analisi log** — leggi file di log da Disco, cerchi pattern di '
+                           'errore\n'
+                           '3. **Backup automatici** — crei cartelle con timestamp, sposti file\n'
+                           '4. **Config management** — leggi file YAML/JSON con configurazioni di '
+                           'deploy\n'
+                           '\n'
+                           '```python\n'
+                           'import os\n'
+                           'from datetime import date\n'
+                           '\n'
+                           '# Crea cartella backup con data odierna\n'
+                           'oggi = str(date.today())\n'
+                           'cartella = f"backup_{oggi}"\n'
+                           'os.makedirs(cartella, exist_ok=True)\n'
+                           '\n'
+                           '# Salva report\n'
+                           'with open(f"{cartella}/report.txt", "w") as f:\n'
+                           '    f.write(f"Report del {oggi}\\n")\n'
+                           '    f.write("Istanze attive: 12\\n")\n'
+                           '    f.write("Costo stimato: $142.50\\n")\n'
+                           '```\n',
+                 'errori_comuni': [{'titolo': "❌ Non usare 'with' per aprire file",
+                                    'testo': 'Senza `with`, se il codice crasha il file rimane '
+                                             'aperto e bloccato.',
+                                    'codice_sbagliato': "f = open('file.txt')\n"
+                                                        'contenuto = f.read()\n'
+                                                        '# se qui crasha, f rimane aperto',
+                                    'codice_giusto': "with open('file.txt') as f:\n"
+                                                     '    contenuto = f.read()\n'
+                                                     '# chiuso automaticamente'},
+                                   {'titolo': '❌ Modalità sbagliata',
+                                    'testo': "`'r'` legge, `'w'` scrive (sovrascrive), `'a'` "
+                                             "aggiunge alla fine. `'w'` cancella il contenuto "
+                                             'esistente!',
+                                    'codice_sbagliato': "with open('log.txt', 'w') as f:\n"
+                                                        "    f.write('nuova riga')  # cancella "
+                                                        'tutto il log!',
+                                    'codice_giusto': "with open('log.txt', 'a') as f:\n"
+                                                     "    f.write('nuova riga\\n')  # aggiunge in "
+                                                     'fondo'},
+                                   {'titolo': '❌ Path relativo vs assoluto',
+                                    'testo': 'Un path relativo dipende da dove esegui lo script. '
+                                             'Usa `os.path.join()` per costruire path portabili.',
+                                    'codice_sbagliato': "open('data/file.txt')  # funziona solo se "
+                                                        'esegui dalla cartella giusta',
+                                    'codice_giusto': 'base = os.path.dirname(__file__)\n'
+                                                     "path = os.path.join(base, 'data', "
+                                                     "'file.txt')"}],
+                 'quando_usarlo': 'Ogni volta che devi leggere/scrivere file, navigare cartelle, '
+                                  'salvare report, leggere configurazioni. Fondamentale per '
+                                  'qualsiasi script di automazione reale.'},
+ 'setup_env': {'analogia': '\n'
+                           '**Il venv è una stanza pulita per ogni progetto.**\n'
+                           '\n'
+                           'Senza ambienti virtuali, tutte le librerie di tutti i tuoi progetti '
+                           'convivono\n'
+                           'nella stessa stanza. La versione di requests che serve al progetto A '
+                           'rompe il progetto B.\n'
+                           '\n'
+                           '```bash\n'
+                           'python -m venv .venv          # crea la stanza\n'
+                           'source .venv/bin/activate     # entra nella stanza (Linux/Mac)\n'
+                           '.venv\\Scripts\\activate        # entra nella stanza (Windows)\n'
+                           'pip install requests streamlit   # installa SOLO in questa stanza\n'
+                           '```\n'
+                           '\n'
+                           'Ogni progetto ha la sua stanza. Nessun conflitto.\n',
+               'perche': '\n'
+                         "**Perché venv e pip sono il primo passo — non l'ultimo.**\n"
+                         '\n'
+                         '```bash\n'
+                         '# Installa dipendenze\n'
+                         'pip install -r requirements.txt\n'
+                         '\n'
+                         '# Congela le versioni esatte (riproducibilità)\n'
+                         'pip freeze > requirements.txt\n'
+                         '\n'
+                         '# Versioni moderne (più veloci di pip)\n'
+                         'pip install uv\n'
+                         'uv pip install requests\n'
+                         '```\n'
+                         '\n'
+                         'Senza requirements.txt il codice funziona sul tuo PC ma non in '
+                         'produzione.\n'
+                         'Con requirements.txt il deploy è deterministico.\n',
+               'errori_comuni': [{'titolo': '❌ pip install senza venv attivo',
+                                  'testo': 'Installa a livello di sistema — rompe altri progetti o '
+                                           'richiede sudo.',
+                                  'codice_sbagliato': '# terminale senza venv attivo\n'
+                                                      'pip install requests  # va nel Python di '
+                                                      'sistema',
+                                  'codice_giusto': 'source .venv/bin/activate  # prima attiva\n'
+                                                   'pip install requests           # poi installa'},
+                                 {'titolo': '❌ Committare .venv su git',
+                                  'testo': 'La cartella .venv pesa centinaia di MB e non è '
+                                           'portabile tra sistemi.',
+                                  'codice_sbagliato': 'git add .venv  # centinaia di MB nel repo',
+                                  'codice_giusto': "echo '.venv/' >> .gitignore\n"
+                                                   'git add requirements.txt  # solo questo'},
+                                 {'titolo': '❌ requirements.txt senza versioni',
+                                  'testo': '`pip freeze` include le versioni esatte. Senza, `pip '
+                                           "install` prende l'ultima — che potrebbe rompere tutto.",
+                                  'codice_sbagliato': '# requirements.txt\nboto3\nstreamlit',
+                                  'codice_giusto': 'requests==1.34.0\nstreamlit==1.40.0'}],
+               'quando_usarlo': 'Sempre — ogni progetto Python merita il suo venv. Non è '
+                                'opzionale, è igiene.'},
+ 'tuple_immutabilita': {'analogia': '\n'
+                                    '**La tupla è cemento. La lista è argilla.**\n'
+                                    '\n'
+                                    'Argilla (lista) — puoi aggiungere, togliere, modificare.\n'
+                                    'Cemento (tupla) — una volta solidificato, non cambia più. Ma '
+                                    'è più solido, più veloce, più sicuro da condividere.\n'
+                                    '\n'
+                                    '```python\n'
+                                    'lista  = [1, 2, 3]   # argilla: modificabile\n'
+                                    'lista[0] = 99        # ok\n'
+                                    '\n'
+                                    'tupla  = (1, 2, 3)   # cemento: immutabile\n'
+                                    'tupla[0] = 99        # TypeError!\n'
+                                    '```\n',
+                        'perche': '\n'
+                                  '**Quando usare tuple e perché copy/deepcopy importano:**\n'
+                                  '\n'
+                                  '```python\n'
+                                  '# Tuple unpacking — elegante e diretto\n'
+                                  'latitudine, longitudine = (45.07, 7.69)\n'
+                                  'nome, *resto = ("Lorenzo", "dev", "Torino")\n'
+                                  '\n'
+                                  '# Chiave di dizionario (le liste non possono esserlo)\n'
+                                  'cache = {}\n'
+                                  'cache[(45.07, 7.69)] = "Torino"  # tupla come chiave\n'
+                                  '\n'
+                                  '# copy vs deepcopy\n'
+                                  'import copy\n'
+                                  'originale = {"lista": [1, 2, 3]}\n'
+                                  'superficiale = copy.copy(originale)\n'
+                                  'profonda     = copy.deepcopy(originale)\n'
+                                  '\n'
+                                  'superficiale["lista"].append(4)  # modifica ANCHE originale!\n'
+                                  'profonda["lista"].append(5)      # non tocca originale\n'
+                                  '```\n',
+                        'errori_comuni': [{'titolo': '❌ Tupla da un elemento senza virgola',
+                                           'testo': '`(42)` è solo `42` tra parentesi. `(42,)` è '
+                                                    'una tupla con un elemento.',
+                                           'codice_sbagliato': 't = (42)\n'
+                                                               "print(type(t))  # <class 'int'>",
+                                           'codice_giusto': 't = (42,)\n'
+                                                            "print(type(t))  # <class 'tuple'>"},
+                                          {'titolo': '❌ Modificare un elemento mutabile dentro una '
+                                                     'tupla',
+                                           'testo': 'La tupla è immutabile, ma se contiene una '
+                                                    'lista, la lista è ancora modificabile.',
+                                           'codice_sbagliato': "t = ([1, 2], 'ok')\n"
+                                                               't[0].append(3)  # funziona! t[0] è '
+                                                               'ancora [1,2,3]',
+                                           'codice_giusto': '# Usa tuple di soli immutabili se hai '
+                                                            'bisogno di vera immutabilità'},
+                                          {'titolo': '❌ copy() su strutture annidate',
+                                           'testo': '`copy.copy()` è superficiale: copia il '
+                                                    'container ma condivide gli oggetti interni.',
+                                           'codice_sbagliato': "a = {'k': [1,2,3]}\n"
+                                                               'b = copy.copy(a)\n'
+                                                               "b['k'].append(4)  # modifica anche "
+                                                               "a['k']!",
+                                           'codice_giusto': 'b = copy.deepcopy(a)  # indipendente '
+                                                            'a tutti i livelli'}],
+                        'quando_usarlo': 'Tuple per dati che non devono cambiare (coordinate, '
+                                         'chiavi composite, ritorni multipli). deepcopy quando '
+                                         'devi clonare strutture annidate senza rischi.'},
+ 'controllo_avanzato': {'analogia': '\n'
+                                    "**break è l'uscita d'emergenza. continue è il filtraggio. "
+                                    'else è la conferma.**\n'
+                                    '\n'
+                                    '```python\n'
+                                    '# break — esci appena trovi quello che cerchi\n'
+                                    'for ist in prodotti:\n'
+                                    '    if ist["stato"] == "running":\n'
+                                    '        prima_running = ist\n'
+                                    '        break   # inutile continuare\n'
+                                    '\n'
+                                    '# continue — salta i casi non interessanti\n'
+                                    'for ist in prodotti:\n'
+                                    '    if ist["stato"] == "stopped":\n'
+                                    '        continue   # non mi interessa\n'
+                                    '    processa(ist)\n'
+                                    '\n'
+                                    '# for/else — else esegue SOLO se il loop non ha fatto break\n'
+                                    'for ist in prodotti:\n'
+                                    '    if ist["id"] == target_id:\n'
+                                    '        print("Trovato!")\n'
+                                    '        break\n'
+                                    'else:\n'
+                                    '    print("Non trovato — cercalo in un\'altra regione")\n'
+                                    '```\n',
+                        'perche': '\n'
+                                  '**match/case — Python 3.10+ — per classificare strutture:**\n'
+                                  '\n'
+                                  '```python\n'
+                                  '# Classifica risposte HTTP\n'
+                                  'def gestisci(codice):\n'
+                                  '    match codice:\n'
+                                  '        case 200: return "OK"\n'
+                                  '        case 404: return "Non trovato"\n'
+                                  '        case 403: return "Accesso negato"\n'
+                                  '        case c if c >= 500: return f"Errore server ({c})"\n'
+                                  '        case _: return "Codice sconosciuto"\n'
+                                  '\n'
+                                  '# Match su strutture requests\n'
+                                  'match risposta.get("State", {}).get("Name"):\n'
+                                  '    case "running":  avvia_monitoraggio()\n'
+                                  '    case "stopped":  notifica_team()\n'
+                                  '    case _:          log_stato_insolito()\n'
+                                  '```\n',
+                        'errori_comuni': [{'titolo': '❌ break fuori da un loop',
+                                           'testo': '`break` e `continue` funzionano solo dentro '
+                                                    'for/while.',
+                                           'codice_sbagliato': 'if condizione:\n'
+                                                               '    break  # SyntaxError fuori da '
+                                                               'loop',
+                                           'codice_giusto': 'for x in lista:\n'
+                                                            '    if condizione:\n'
+                                                            '        break'},
+                                          {'titolo': '❌ continue in while senza aggiornare la '
+                                                     'variabile',
+                                           'testo': '`continue` salta il resto del corpo — se '
+                                                    'aggiorni la variabile in fondo, il loop '
+                                                    'diventa infinito.',
+                                           'codice_sbagliato': 'n = 0\n'
+                                                               'while n < 5:\n'
+                                                               '    if n == 3: continue\n'
+                                                               '    n += 1   # non raggiunto '
+                                                               'quando n==3 → loop infinito',
+                                           'codice_giusto': 'n = 0\n'
+                                                            'while n < 5:\n'
+                                                            '    n += 1\n'
+                                                            '    if n == 3: continue\n'
+                                                            '    print(n)'},
+                                          {'titolo': '❌ for/else male interpretato',
+                                           'testo': "Il `else` del for NON significa 'se il for è "
+                                                    "vuoto'. Esegue SEMPRE tranne se è avvenuto un "
+                                                    'break.',
+                                           'codice_sbagliato': "# pensando che else = 'lista "
+                                                               "vuota'\n"
+                                                               'for x in []:  # else esegue\n'
+                                                               '    pass\n'
+                                                               'else:\n'
+                                                               "    print('Vuota')  # esegue, ma "
+                                                               'anche se la lista ha elementi!',
+                                           'codice_giusto': "# else = 'non è avvenuto break'\n"
+                                                            '# Per lista vuota: if not lista:'}],
+                        'quando_usarlo': 'break per uscire appena trovi. continue per saltare casi '
+                                         'non interessanti (più leggibile di if annidati). '
+                                         'for/else per ricerche. match/case per classificare '
+                                         'valori o strutture (Python 3.10+).'}}
+
+
+APPROCCIO = {'variabili': {'domanda_chiave': 'Cosa sto etichettando e perché mi servirà dopo?',
+               'prima_di_codificare': ['Che tipo di valore devo conservare? (testo, numero, '
+                                       'vero/falso?)',
+                                       'Lo userò più di una volta nel codice?',
+                                       'Il valore è fisso o può cambiare nel tempo?',
+                                       'Che nome lo descrive meglio? (evita: x, a, val, temp)'],
+               'pattern': ['Definisci prima → usa dopo. Mai il contrario.',
+                           'Calcola → salva in variabile → riusa la variabile',
+                           "Costanti di configurazione all'inizio del file, in MAIUSCOLO"],
+               'checklist': ['Il nome è descrittivo (non x, a, dato)?',
+                             'Definita PRIMA di essere usata?',
+                             'Uso `=` per assegnare e `==` per confrontare?',
+                             'Il tipo è quello giusto? (stringa vs numero vs booleano)']},
+ 'condizioni': {'domanda_chiave': 'Quante strade può prendere il codice? Le ho gestite tutte?',
+                'prima_di_codificare': ['Quante situazioni distinte esistono? (2, 3, N?)',
+                                        'Le condizioni si escludono a vicenda? → elif. '
+                                        'Indipendenti? → if separati',
+                                        "Ho un caso 'tutto il resto'? → else",
+                                        "L'ordine dei rami importa? (dal più specifico al più "
+                                        'generico)'],
+                'pattern': ['Due casi → `if / else`',
+                            'Più casi mutuamente esclusivi → `if / elif / elif / else`',
+                            'Più controlli indipendenti → `if` separati (non elif)',
+                            'Soglie: ordina dal valore più alto al più basso'],
+                'checklist': ['Due punti `:` dopo ogni if/elif/else?',
+                              'Indentazione di 4 spazi sotto ogni ramo?',
+                              'Uso `==` per confrontare, non `=` per assegnare?',
+                              "Qual è l'output se nessuna condizione è vera?"]},
+ 'cicli': {'domanda_chiave': 'Cosa devo costruire/raccogliere? Inizializzalo vuoto PRIMA del loop.',
+           'prima_di_codificare': ['Quante volte si ripete? (numero fisso → `range`, sequenza → '
+                                   '`for`, condizione → `while`)',
+                                   "Ho bisogno dell'indice o solo del valore?",
+                                   'Devo raccogliere risultati? → inizializza `[]` o `0` prima del '
+                                   'loop',
+                                   "C'è un caso in cui il loop non dovrebbe girare?"],
+           'pattern': ['Itera valori → `for x in lista`',
+                       'Itera con indice → `for i, x in enumerate(lista)`',
+                       'Accumula → `totale = 0` prima, `totale += x` dentro',
+                       'Filtra → `if condizione:` dentro il for',
+                       'Trasforma → `risultati.append(f(x))` o list comprehension `[f(x) for x in '
+                       'lista]`'],
+           'checklist': ['`range(n)` va da 0 a n-1. Per 1→n: `range(1, n+1)`',
+                         'Nel while: aggiorno la variabile di controllo?',
+                         'Sto modificando la lista su cui sto iterando? (usa list comprehension '
+                         'invece)',
+                         'Il loop termina sempre? (no loop infinito?)']},
+ 'funzioni': {'domanda_chiave': 'Se questo codice cambia domani, quanti posti devo modificare?',
+              'prima_di_codificare': ['Questo codice lo riscriverò più di una volta? → fai una '
+                                      'funzione',
+                                      'Quanti input riceve? (parametri) Quali hanno senso come '
+                                      'default?',
+                                      'Cosa restituisce? (`return` valore) o solo stampa?',
+                                      'Ha una responsabilità sola? Se fa N cose → N funzioni'],
+              'pattern': ["Nome che descrive l'azione: `calcola_`, `ottieni_`, `verifica_`, "
+                          '`salva_`',
+                          'Una funzione = una responsabilità sola',
+                          "Default parameters per valori comuni: `def f(regione='nord')`",
+                          'Testa con input semplici prima di usarla in contesti complessi'],
+              'checklist': ['Ha `return` se deve dare un valore?',
+                            'I parametri hanno nomi descrittivi?',
+                            'Fa una sola cosa?',
+                            "L'ho chiamata con input limite? (0, lista vuota, None)"]},
+ 'liste_dizionari': {'domanda_chiave': 'Cosa entra? (lista/dict) Cosa devo ottenere? Filtrare, '
+                                       'trasformare o navigare?',
+                     'prima_di_codificare': ['Sequenza ordinata? → lista. Coppie chiave-valore? → '
+                                             'dizionario',
+                                             'Devo cercare per posizione o per nome?',
+                                             'La risposta requests: è una lista di dict o un dict '
+                                             'con liste annidate?',
+                                             'Devo filtrare, trasformare, o solo iterare?'],
+                     'pattern': ['Filtra → `[x for x in lista if condizione]`',
+                                 'Trasforma → `[f(x) for x in lista]`',
+                                 "Naviga requests → `risposta['Reservations'][0]['Instances']`",
+                                 "Accesso sicuro → `dict.get('chiave', default)` evita KeyError"],
+                     'checklist': ['La lista può essere vuota? Ho gestito quel caso?',
+                                   'La chiave del dict esiste sempre? Se no, uso `.get()`?',
+                                   'requests: la risposta è una lista o un singolo elemento?',
+                                   'Sto modificando la lista mentre ci itero? (usa list '
+                                   'comprehension)']},
+ 'automazione': {'domanda_chiave': 'Cosa può andare storto con file e path? (non esiste, permessi, '
+                                   'path errato)',
+                 'prima_di_codificare': ['Il file esiste già? Cosa succede se non esiste?',
+                                         'Devo leggere (`r`), sovrascrivere (`w`) o aggiungere '
+                                         '(`a`)?',
+                                         'Il path è assoluto o relativo? Funziona su altre '
+                                         'macchine?',
+                                         'Devo creare la directory prima di creare il file?'],
+                 'pattern': ['Sempre `with open(...)` — si chiude automaticamente',
+                             'Costruisci path con `os.path.join()` non con `+`',
+                             'Crea directory con `exist_ok=True`',
+                             'Leggi → processa → scrivi (non mescolare lettura e scrittura dello '
+                             'stesso file)'],
+                 'checklist': ['Ho usato `with open(...)` (non `f = open(...)` senza close)?',
+                               'La modalità è giusta? `w` sovrascrive tutto!',
+                               "Ho gestito il caso 'file non esiste'?",
+                               "Il path funziona anche su un'altra macchina?"]},
+ 'kwargs_unpacking': {'domanda_chiave': 'Sto costruendo questa chiamata staticamente o '
+                                        'dinamicamente in base a condizioni?',
+                      'prima_di_codificare': ['I parametri sono sempre gli stessi o variano in '
+                                              'base alla logica?',
+                                              'Stai leggendo codice requests con `**params`? → '
+                                              'stai vedendo un dict spacchettato',
+                                              'La funzione deve essere flessibile? → considera '
+                                              '`**kwargs`',
+                                              'Devo includere parametri opzionali solo se '
+                                              'presenti? → costruisci dict e usa `**`'],
+                      'pattern': ["`params = {}; if cond: params['K'] = v` → poi `f(**params)` "
+                                  '(chiamata dinamica)',
+                                  "`def f(**kwargs): kwargs.get('k', default)` per accesso sicuro "
+                                  'ai parametri',
+                                  '`*lista` spacchetta come argomenti posizionali',
+                                  '`**dict` spacchetta come keyword arguments'],
+                      'checklist': ['Ho usato `**` (doppio) per dict e `*` (singolo) per liste?',
+                                    'Le chiavi del dict corrispondono ai nomi dei parametri della '
+                                    'funzione?',
+                                    'Il dict non ha chiavi extra non accettate dalla funzione?',
+                                    'requests: ho verificato quali parametri sono obbligatori vs '
+                                    'opzionali nella doc?']},
+ 'json_env': {'domanda_chiave': "Questo dato viene dall'esterno (file, API, env)? → devo "
+                                'deserializzarlo. Va fuori? → devo serializzarlo.',
+              'prima_di_codificare': ['Ho una stringa da convertire in dict? → '
+                                      '`json.loads(stringa)`',
+                                      'Ho un dict da convertire in stringa? → `json.dumps(dict)`',
+                                      'Sto leggendo da file? → `json.load(file_obj)` (senza la s)',
+                                      'Le credenziali devono stare in env var, non nel codice'],
+              'pattern': ["`os.environ.get('CHIAVE', 'default')` — sempre con default, mai "
+                          'KeyError',
+                          '`json.dumps(obj, indent=2)` per output leggibile',
+                          'Config: JSON file per defaults + env var per override in produzione',
+                          'requests legge `AWS_*` env var automaticamente'],
+              'checklist': ['Sto usando `json.loads` per stringhe o `json.load` per file?',
+                            'Tutte le env var hanno un default sicuro con `.get()`?',
+                            'Nessuna credenziale hardcodata nel codice?',
+                            'Il JSON che genero è valido? Posso verificarlo con '
+                            '`json.loads(json.dumps(obj))`?']},
+ 'comprehensions': {'domanda_chiave': 'Cosa devo ottenere? (lista/dict/set) Da cosa parto? Quali '
+                                      'elementi filtro o trasformo?',
+                    'prima_di_codificare': ['Sto costruendo una lista? → list comprehension '
+                                            '`[...]`',
+                                            'Sto costruendo un mapping? → dict comprehension `{k: '
+                                            'v ...}`',
+                                            'La logica è semplice (1 filtro, 1 trasformazione)? → '
+                                            'comprehension OK',
+                                            'La logica è complessa (2+ condizioni, side effect)? → '
+                                            'loop esplicito'],
+                    'pattern': ['Filtra: `[x for x in lista if condizione]`',
+                                'Trasforma: `[f(x) for x in lista]`',
+                                'Filtra+trasforma: `[f(x) for x in lista if condizione]`',
+                                "Dict: `{x['id']: x['stato'] for x in lista}`",
+                                'Generator (lazy, no lista in RAM): `sum(x for x in lista)`'],
+                    'checklist': ["L'`if` di filtro sta DOPO il `for`, non prima dell'espressione?",
+                                  'Sto creando una struttura dati o eseguendo azioni? (loop per '
+                                  'azioni)',
+                                  'La comprehension è leggibile in una riga? Se no, usa loop',
+                                  'Il tipo è giusto? `[...]` lista, `{...}` set o dict, `(...)` '
+                                  'generator']},
+ 'builtins': {'domanda_chiave': 'Ho bisogno di indice + valore? (enumerate) Di iterare su più '
+                                'liste? (zip) Di ordine? (sorted)',
+              'prima_di_codificare': ["Ho bisogno dell'indice E del valore? → `enumerate(lista)`",
+                                      'Devo abbinare elementi di due liste? → `zip(lista1, '
+                                      'lista2)`',
+                                      'Devo ordinare per un campo specifico? → `sorted(lista, '
+                                      "key=lambda x: x['campo'])`",
+                                      'Un valore potrebbe essere `None`? → usa `is None`, non `== '
+                                      'None`'],
+              'pattern': ['`for i, val in enumerate(lista, start=1)` — numerazione da 1',
+                          '`for a, b in zip(lista1, lista2)` — parallelo',
+                          "`sorted(lista, key=lambda x: x['k'], reverse=True)` — decrescente",
+                          "`val = obj.get('campo')` → `if val is not None: usa(val)`"],
+              'checklist': ['Ho salvato il risultato di `sorted()`? (non modifica in-place)',
+                            'Le due liste di `zip` hanno la stessa lunghezza?',
+                            'Sto controllando `None` con `is None` (non `== None`)?',
+                            'Ho usato `enumerate` invece di `range(len(lista))`?']},
+ 'setup_env': {'domanda_chiave': 'Questo progetto ha un ambiente isolato con le dipendenze fisse?',
+               'prima_di_codificare': ['Ho creato un venv per questo progetto?',
+                                       'Ho attivato il venv prima di installare?',
+                                       'Ho un requirements.txt aggiornato?',
+                                       'Il .gitignore esclude .venv/?'],
+               'pattern': ['`python -m venv .venv && source .venv/bin/activate` — crea e attiva',
+                           '`pip install -r requirements.txt` — installa dipendenze da file',
+                           '`pip freeze > requirements.txt` — congela versioni correnti',
+                           '`python -m pip install --upgrade pip` — aggiorna pip prima di tutto'],
+               'checklist': ['Il terminale mostra (.venv) davanti al prompt?',
+                             'requirements.txt include le versioni esatte (==)?',
+                             '.venv è nel .gitignore?',
+                             'Ho testato `pip install -r requirements.txt` in un venv pulito?']},
+ 'tipi_operatori': {'domanda_chiave': "Questo valore viene dall'esterno? → va castato. Sto "
+                                      'assegnando in base a una condizione? → considera il '
+                                      'ternario.',
+                    'prima_di_codificare': ['Il valore arriva come stringa (env var, input, file)? '
+                                            '→ cast esplicito',
+                                            'Il risultato è uno dei due valori? → ternario `x if '
+                                            'cond else y`',
+                                            'Sto assegnando e verificando in un if? → walrus `:=`',
+                                            'Sto dividendo per ottenere un intero? → `//` non `/`'],
+                    'pattern': ["`int(os.environ.get('N', '10'))` — env var → int con default",
+                                '`val = a if condizione else b` — ternario per assegnazione',
+                                '`while chunk := f.read(1024):` — walrus per loop di lettura',
+                                "`bool('0')` è True — usa `== '1'` per flag stringa"],
+                    'checklist': ['Ho gestito il caso in cui il cast fallisce (ValueError)?',
+                                  'Il ternario è leggibile in una riga, o è meglio un if/else?',
+                                  "Il walrus è in un contesto dove l'assegnazione è ovvia?",
+                                  'La divisione con `/` ritorna float — è quello che voglio?']},
+ 'scope_closures': {'domanda_chiave': 'Da dove viene questo nome? (Local → Enclosing → Global → '
+                                      'Built-in)',
+                    'prima_di_codificare': ['La variabile è definita nella funzione corrente? → '
+                                            'Local',
+                                            'È in una funzione esterna che la racchiude? → '
+                                            'Enclosing',
+                                            'È al top del modulo? → Global',
+                                            'Devo modificare una globale? → dichiara `global` '
+                                            "all'inizio della funzione"],
+                    'pattern': ['Modulo per key semplici: `sorted(lista, key=lambda x: '
+                                "x['campo'])`",
+                                'Closure factory: `def make_fn(param): def fn(x): return param + '
+                                'x; return fn`',
+                                '`nonlocal` per modificare variabili di funzioni esterne (non '
+                                'globali)',
+                                'Modulo con default `lambda i=i: i` per catturare valore del loop'],
+                    'checklist': ['Se ottengo UnboundLocalError, ho dimenticato `global`?',
+                                  'La lambda è leggibile in una riga? Se no, usa `def`',
+                                  'La closure cattura il valore o il riferimento?',
+                                  'Sto usando `global` più di una volta? → forse serve una '
+                                  'classe']},
+ 'tuple_immutabilita': {'domanda_chiave': 'Questi dati devono cambiare? Se no, usa una tupla — è '
+                                          'più sicura e più veloce.',
+                        'prima_di_codificare': ['I dati cambiano dopo la creazione? Lista. Non '
+                                                'cambiano? Tupla.',
+                                                'Devo usarlo come chiave di dict o in un set? → '
+                                                'deve essere hashable → tupla',
+                                                'Sto clonando una struttura annidata? → deepcopy, '
+                                                'non copy',
+                                                'Sto facendo unpacking multiplo? → `a, b, *resto = '
+                                                'collezione`'],
+                        'pattern': ['`a, b = b, a` — swap elegante con tuple implicita',
+                                    '`x, y, z = punto_3d` — unpacking diretto',
+                                    '`lat, lon = (45.07, 7.69)` — coordinate come tupla',
+                                    '`import copy; clone = copy.deepcopy(obj)` — copia '
+                                    'indipendente'],
+                        'checklist': ['La tupla da 1 elemento ha la virgola finale: `(42,)`?',
+                                      'Ho usato deepcopy se la struttura ha liste o dict annidati?',
+                                      'Sto usando tuple come chiave di dict? → solo con elementi '
+                                      'immutabili',
+                                      'Ho bisogno di named fields? → considera `namedtuple` o '
+                                      '`dataclass`']},
+ 'controllo_avanzato': {'domanda_chiave': 'Sto cercando qualcosa? (break+else) Sto filtrando? '
+                                          '(continue) Sto classificando? (match/case)',
+                        'prima_di_codificare': ['Esco appena trovo il primo match? → break',
+                                                'Salto elementi non interessanti? → continue (più '
+                                                'leggibile di if annidato)',
+                                                'Ho bisogno di sapere se il loop è finito senza '
+                                                'trovare? → for/else',
+                                                'Sto classificando un valore in N casi? → '
+                                                'match/case (Python 3.10+)'],
+                        'pattern': ['`for x in lista: if cond: risultato = x; break` + `else: '
+                                    'risultato = None`',
+                                    '`for x in lista: if not cond: continue; processa(x)` — '
+                                    'filtraggio',
+                                    '`match valore: case A: ... case B: ... case _: ...` — default '
+                                    'con `_`',
+                                    '`case c if c >= 500:` — guard condition in match'],
+                        'checklist': ['Il for/else è chiaro? Se confonde, usa una variabile '
+                                      'booleana `trovato`',
+                                      "Il continue riduce l'indentazione? → allora è utile",
+                                      'match/case: ho il caso `_` come default?',
+                                      'Il while con continue aggiorna la variabile PRIMA del '
+                                      'continue?']},
+ 'generatori': {'domanda_chiave': 'Ho bisogno di tutti i valori in memoria o li consumo uno alla '
+                                  'volta?',
+                'prima_di_codificare': ['I dati sono enormi o potenzialmente infiniti? → '
+                                        'generatore',
+                                        'Sto iterando una risposta requests paginata? → usare '
+                                        'paginator + yield',
+                                        'Aggrego (sum, max, any)? → generator expression, non list',
+                                        'Ho bisogno di iterare due volte? → list(), perché i '
+                                        'generatori si esauriscono'],
+                'pattern': ['`def gen(): for x in src: yield trasforma(x)` — pipeline lazy',
+                            '`sum(x**2 for x in range(n))` — aggregazione senza lista',
+                            '`from itertools import islice; list(islice(gen, 10))` — prendi solo N',
+                            '`yield from sotto_generatore` — delegare a un sotto-generatore'],
+                'checklist': ['Ho tenuto conto che il generatore si esaurisce?',
+                              'Se itero più volte, ho convertito in lista?',
+                              'Il generatore infinito usa islice o condizione di uscita?',
+                              'Sto usando `yield from` invece di un loop `for x in sub: yield '
+                              'x`?']},
+ 'oop_avanzata': {'domanda_chiave': 'Voglio che Python tratti il mio oggetto come un nativo? → '
+                                    'implementa i dunder giusti.',
+                  'prima_di_codificare': ['Voglio `print(obj)` leggibile? → `__str__`',
+                                          'Voglio `repr(obj)` per debug? → `__repr__`',
+                                          'Voglio `len(obj)`? → `__len__`',
+                                          'Voglio `obj == altro`? → `__eq__` (e poi `__hash__`)'],
+                  'pattern': ['`@property` per attributi calcolati (senza parentesi)',
+                              '`@classmethod def from_dict(cls, d)` — factory costruttore '
+                              'alternativo',
+                              '`@dataclass` elimina `__init__`, `__repr__`, `__eq__` boilerplate',
+                              '`field(default_factory=list)` per attributi mutabili in dataclass'],
+                  'checklist': ['Ho definito `__hash__` dopo aver definito `__eq__`?',
+                                'La property ha setter se è modificabile?',
+                                'Il @classmethod ha `cls` come primo parametro (non `self`)?',
+                                'Il dataclass usa `field(default_factory=...)` per liste/dict?']},
+ 'decoratori': {'domanda_chiave': 'Questo comportamento si ripete su più funzioni? → decoratore.',
+                'prima_di_codificare': ['Il decoratore aggiunge logging/timing/retry/auth? → '
+                                        'pattern classico',
+                                        'Il decoratore ha parametri? → serve una funzione che '
+                                        'ritorna un decoratore',
+                                        'Sto preservando il nome e la docstring? → '
+                                        '`@functools.wraps`',
+                                        'La funzione ha sempre gli stessi input? → considera '
+                                        '`@lru_cache`'],
+                'pattern': ['`def dec(func): @wraps(func) def wrapper(*a,**kw): ...; return '
+                            'func(*a,**kw); return wrapper`',
+                            '`def dec(n): def decorator(func): ... return decorator` — con '
+                            'parametri',
+                            '`@lru_cache(maxsize=None)` — cache illimitata per funzioni pure',
+                            '`functools.partial(f, arg=val)` — funzione con argomenti parziali'],
+                'checklist': ['Ho usato `@functools.wraps(func)` nel wrapper?',
+                              'Il decoratore con parametri ha tre livelli di nesting?',
+                              'Se uso `@lru_cache`, gli argomenti sono hashable?',
+                              'Il decoratore ritorna `wrapper`, non `wrapper()`?']},
+ 'moduli_package': {'domanda_chiave': 'Questo codice verrà importato o eseguito direttamente? → '
+                                      '`__name__` guard.',
+                    'prima_di_codificare': ['Il modulo può essere sia importato che eseguito? → '
+                                            "`if __name__ == '__main__':`",
+                                            'Sto loggando eventi? → `logging`, non `print`',
+                                            'Conto occorrenze? → `Counter`. Aggrego in liste/dict? '
+                                            '→ `defaultdict`',
+                                            'Importo da un package interno? → import relativo '
+                                            '`from . import modulo`'],
+                    'pattern': ['`logger = logging.getLogger(__name__)` — logger per modulo',
+                                '`logging.basicConfig(level=logging.INFO)` — configurazione base',
+                                '`Counter(lista).most_common(n)` — top N elementi',
+                                '`defaultdict(list); d[chiave].append(val)` — senza KeyError'],
+                    'checklist': ["Lo script ha `if __name__ == '__main__':` per il codice "
+                                  'eseguibile?',
+                                  'Sto usando `logger.info/warning/error` invece di `print`?',
+                                  'Il format del log include timestamp e livello?',
+                                  'Ho evitato import circolari (A importa B, B importa A)?']},
+ 'eccezioni_avanzate': {'domanda_chiave': 'Sto comunicando un errore di dominio? → eccezione '
+                                          'custom. Sto garantendo cleanup? → contextmanager.',
+                        'prima_di_codificare': ["L'eccezione porta informazioni strutturate? → "
+                                                'classe custom con attributi',
+                                                'Devo preservare la causa originale? → `raise '
+                                                'NuovoErrore() from e`',
+                                                "L'assert è per invarianti di sviluppo o "
+                                                'validazione utente? → solo invarianti',
+                                                'Ho una risorsa da rilasciare sempre? → '
+                                                'contextmanager con finally'],
+                        'pattern': ['`class MioErrore(Exception): def __init__(self, msg, dati): '
+                                    'super().__init__(msg); self.dati = dati`',
+                                    "`raise ValueError('messaggio') from causa_originale`",
+                                    '`@contextmanager def risorsa(): ...; yield r; finally: '
+                                    'cleanup()`',
+                                    "`assert condizione, 'messaggio'` — solo per invarianti, mai "
+                                    'per validazione'],
+                        'checklist': ["L'eccezione custom estende la classe giusta (ValueError, "
+                                      'RuntimeError, ecc.)?',
+                                      'Ho usato `raise ... from e` per preservare il contesto?',
+                                      'Il contextmanager ha `try/finally` intorno allo yield?',
+                                      "L'assert è disabilitabile senza rompere la logica?"]}}
 
 
 CURRICULUM = [
@@ -2065,7 +738,7 @@ print(s[0:5])                  # hello (slice)
 print(f"Ciao {nome}, sei di {citta}!")
 ```
 """,
-        "esempio": 'cert = "aws cloud practitioner"\nprint(cert.upper())\nprint(cert.title())\nprint(f"Lunghezza: {len(cert)} caratteri")',
+        "esempio": 'cert = "demo cloud practitioner"\nprint(cert.upper())\nprint(cert.title())\nprint(f"Lunghezza: {len(cert)} caratteri")',
         "esercizi": [
             {
                 "testo": 'Data `testo = "python è fantastico"`, stampala in **maiuscolo** e con la **prima lettera maiuscola**.',
@@ -2079,19 +752,19 @@ print(f"Ciao {nome}, sei di {citta}!")
                 "xp_bonus": 0,
             },
             {
-                "testo": 'Con `bucket_name = "mio-bucket-lorenzo"`, stampa: `Bucket S3: mio-bucket-lorenzo` usando una f-string.',
-                "placeholder": 'bucket_name = "mio-bucket-lorenzo"\n# f-string',
-                "check": lambda out, err, vs: err is None and "Bucket S3: mio-bucket-lorenzo" in out.strip(),
-                "feedback": lambda out, err: 'L\'output deve essere esattamente `Bucket S3: mio-bucket-lorenzo` — controlla spazi e maiuscole',
-                "hint": 'print(f"Bucket S3: {bucket_name}")',
+                "testo": 'Con `bucket_name = "mio-scaffale-lorenzo"`, stampa: `Scaffale Disco: mio-scaffale-lorenzo` usando una f-string.',
+                "placeholder": 'bucket_name = "mio-scaffale-lorenzo"\n# f-string',
+                "check": lambda out, err, vs: err is None and "Scaffale Disco: mio-scaffale-lorenzo" in out.strip(),
+                "feedback": lambda out, err: 'L\'output deve essere esattamente `Scaffale Disco: mio-scaffale-lorenzo` — controlla spazi e maiuscole',
+                "hint": 'print(f"Scaffale Disco: {bucket_name}")',
                 "xp_bonus": 0,
             },
             {
-                "testo": '🏆 **BOSS**: Data `"  Hello AWS World  "`, stampa: versione senza spazi laterali + versione invertita (`.strip()` e `[::-1]`).',
-                "placeholder": 's = "  Hello AWS World  "\n# strip e inverti',
-                "check": lambda out, err, vs: err is None and "Hello AWS World" in out and "dlroW" in out,
+                "testo": '🏆 **BOSS**: Data `"  Hello Python World  "`, stampa: versione senza spazi laterali + versione invertita (`.strip()` e `[::-1]`).',
+                "placeholder": 's = "  Hello Python World  "\n# strip e inverti',
+                "check": lambda out, err, vs: err is None and "Hello Python World" in out and "dlroW" in out,
                 "feedback": lambda out, err: (
-                    "Usa `.strip()` per rimuovere gli spazi laterali" if "Hello AWS World" not in out else
+                    "Usa `.strip()` per rimuovere gli spazi laterali" if "Hello Python World" not in out else
                     "Per invertire usa lo slicing `[::-1]`"
                 ),
                 "hint": "print(s.strip())\nprint(s.strip()[::-1])",
@@ -2164,7 +837,7 @@ else:
         "teoria": """
 ### for e while
 ```python
-for r in ["eu-west-1", "us-east-1"]:
+for r in ["nord", "sud"]:
     print(r)
 
 for i in range(5):   # 0,1,2,3,4
@@ -2176,7 +849,7 @@ while n < 3:
     n += 1
 ```
 """,
-        "esempio": 'regioni = ["eu-west-1", "us-east-1", "ap-southeast-1"]\nfor r in regioni:\n    print(f"Regione: {r}")',
+        "esempio": 'regioni = ["nord", "sud", "ap-southeast-1"]\nfor r in regioni:\n    print(f"Regione: {r}")',
         "esercizi": [
             {
                 "testo": "Stampa i numeri da 1 a 5 usando `range()`.",
@@ -2226,7 +899,7 @@ print(saluta("Lorenzo"))   # Ciao, Lorenzo!
 
 **Parametri di default:**
 ```python
-def connetti(regione="eu-west-1", porta=443):
+def connetti(regione="nord", porta=443):
     print(f"→ {regione}:{porta}")
 ```
 """,
@@ -2241,11 +914,11 @@ def connetti(regione="eu-west-1", porta=443):
                 "xp_bonus": 0,
             },
             {
-                "testo": 'Scrivi `saluta_utente(nome, servizio="AWS")` che stampa `"Benvenuto Lorenzo su AWS"`.',
-                "placeholder": 'def saluta_utente(nome, servizio="AWS"):\n    pass\n\nsaluta_utente("Lorenzo")',
-                "check": lambda out, err, vs: err is None and "Lorenzo" in out and "AWS" in out,
+                "testo": 'Scrivi `saluta_utente(nome, servizio="Python")` che stampa `"Benvenuto Lorenzo su Python"`.',
+                "placeholder": 'def saluta_utente(nome, servizio="Python"):\n    pass\n\nsaluta_utente("Lorenzo")',
+                "check": lambda out, err, vs: err is None and "Lorenzo" in out and "Python" in out,
                 "feedback": lambda out, err: 'Dentro la funzione: `print(f"Benvenuto {nome} su {servizio}")`',
-                "hint": 'def saluta_utente(nome, servizio="AWS"):\n    print(f"Benvenuto {nome} su {servizio}")\n\nsaluta_utente("Lorenzo")',
+                "hint": 'def saluta_utente(nome, servizio="Python"):\n    print(f"Benvenuto {nome} su {servizio}")\n\nsaluta_utente("Lorenzo")',
                 "xp_bonus": 0,
             },
             {
@@ -2264,31 +937,31 @@ def connetti(regione="eu-west-1", porta=443):
         "teoria": """
 ### Liste
 ```python
-bucket = ["log-bucket", "data-bucket"]
-bucket.append("new-bucket")
-print(bucket[0])      # primo elemento
+scaffale = ["log-scaffale", "data-scaffale"]
+scaffale.append("new-scaffale")
+print(scaffale[0])      # primo elemento
 ```
 
 ### Dizionari — chiave → valore
 ```python
-istanza = {"id": "i-0abc123", "tipo": "t3.micro"}
-print(istanza["tipo"])       # t3.micro
-istanza["stato"] = "running" # aggiunge chiave
+prodotto = {"id": "i-0abc123", "tipo": "base"}
+print(prodotto["tipo"])       # base
+prodotto["stato"] = "running" # aggiunge chiave
 ```
 
-> ⚡ Tutte le risposte boto3 sono **dizionari**.
+> ⚡ Tutte le risposte requests sono **dizionari**.
 """,
-        "esempio": 'ist = {"id": "i-0abc123", "tipo": "t3.micro", "regione": "eu-west-1"}\nfor k, v in ist.items():\n    print(f"{k}: {v}")',
+        "esempio": 'ist = {"id": "i-0abc123", "tipo": "base", "regione": "nord"}\nfor k, v in ist.items():\n    print(f"{k}: {v}")',
         "esercizi": [
             {
-                "testo": 'Crea `servizi = ["EC2", "S3", "Lambda"]`, aggiungi `"RDS"` con `.append()` e stampa.',
-                "placeholder": 'servizi = ["EC2", "S3", "Lambda"]\n# append e print',
-                "check": lambda out, err, vs: err is None and "RDS" in out and "EC2" in out,
+                "testo": 'Crea `servizi = ["Server", "Disco", "Modulo"]`, aggiungi `"Database"` con `.append()` e stampa.',
+                "placeholder": 'servizi = ["Server", "Disco", "Modulo"]\n# append e print',
+                "check": lambda out, err, vs: err is None and "Database" in out and "Server" in out,
                 "feedback": lambda out, err: (
-                    "Usa `servizi.append('RDS')` prima del print" if "RDS" not in out else
+                    "Usa `servizi.append('Database')` prima del print" if "Database" not in out else
                     "Stampa la lista con `print(servizi)`"
                 ),
-                "hint": 'servizi.append("RDS")\nprint(servizi)',
+                "hint": 'servizi.append("Database")\nprint(servizi)',
                 "xp_bonus": 0,
             },
             {
@@ -2300,9 +973,9 @@ istanza["stato"] = "running" # aggiunge chiave
                 "xp_bonus": 0,
             },
             {
-                "testo": "🏆 **BOSS**: Lista di dizionari con 3 servizi AWS (chiavi: `nome`, `costo_mensile`). Stampa solo quelli con costo > 50.",
-                "placeholder": 'servizi = [\n    {"nome": "EC2", "costo_mensile": 80},\n    {"nome": "S3",  "costo_mensile": 5},\n    {"nome": "RDS", "costo_mensile": 120},\n]\n# filtra e stampa',
-                "check": lambda out, err, vs: err is None and ("EC2" in out or "RDS" in out) and "S3" not in out,
+                "testo": "🏆 **BOSS**: Lista di dizionari con 3 servizi Python (chiavi: `nome`, `costo_mensile`). Stampa solo quelli con costo > 50.",
+                "placeholder": 'servizi = [\n    {"nome": "Server", "costo_mensile": 80},\n    {"nome": "Disco",  "costo_mensile": 5},\n    {"nome": "Database", "costo_mensile": 120},\n]\n# filtra e stampa',
+                "check": lambda out, err, vs: err is None and ("Server" in out or "Database" in out) and "Disco" not in out,
                 "feedback": lambda out, err: 'Loop sulla lista: `for s in servizi: if s["costo_mensile"] > 50: print(s["nome"])`',
                 "hint": 'for s in servizi:\n    if s["costo_mensile"] > 50:\n        print(s["nome"])',
                 "xp_bonus": 10,
@@ -2312,8 +985,8 @@ istanza["stato"] = "running" # aggiunge chiave
                 "testo": "🐛 **DEBUG**: Questo codice vuole stampare il costo di ogni servizio e il totale, ma ha 2 bug. Trovali.",
                 "placeholder": (
                     'servizi = [\n'
-                    '    {"nome": "EC2", "costo": 70},\n'
-                    '    {"nome": "RDS", "costo": 105},\n'
+                    '    {"nome": "Server", "costo": 70},\n'
+                    '    {"nome": "Database", "costo": 105},\n'
                     ']\n'
                     'totale = 0\n'
                     'for s in servizi:\n'
@@ -2321,7 +994,7 @@ istanza["stato"] = "running" # aggiunge chiave
                     '    totale =+ s["costo"]               # BUG 2\n'
                     'print(f"Totale: ${totale}")\n'
                 ),
-                "check": lambda out, err, vs: err is None and "EC2" in out.strip() and "175" in out,
+                "check": lambda out, err, vs: err is None and "Server" in out.strip() and "175" in out,
                 "feedback": lambda out, err: "BUG 1: `s[nome]` → `s['nome']` (mancano le virgolette). BUG 2: `=+` non esiste → usa `+=`",
                 "hint": "Correggi: `s['nome']` e `totale += s['costo']`",
                 "xp_bonus": 0,
@@ -2422,18 +1095,14 @@ finally:
     print("Operazione terminata")  # gira sempre
 ```
 
-### In boto3 — il pattern fondamentale
+### Catturare il tipo giusto di errore
 ```python
-from botocore.exceptions import ClientError
-
 try:
-    s3.get_object(Bucket="mio-bucket", Key="file.txt")
-except ClientError as e:
-    codice = e.response["Error"]["Code"]
-    if codice == "NoSuchKey":
-        print("File non esiste")
-    elif codice == "AccessDenied":
-        print("Permessi insufficienti")
+    config = leggi_config("app.json")
+except FileNotFoundError:
+    print("File di configurazione mancante")
+except KeyError as e:
+    print(f"Campo obbligatorio assente: {e}")
 ```
 """,
         "esempio": (
@@ -2502,7 +1171,7 @@ except ClientError as e:
                     '        pass\n'
                     '\n'
                     'accedi_bucket("prod-logs")\n'
-                    'accedi_bucket("bucket-inesistente")\n'
+                    'accedi_bucket("scaffale-inesistente")\n'
                 ),
                 "check": lambda out, err, vs: (
                     err is None
@@ -2510,19 +1179,19 @@ except ClientError as e:
                     and ("dati" in out.lower() or "prod" in out.lower())
                     and ("non esiste" in out.lower() or "trovato" in out.lower() or "inesistente" in out.lower())
                 ),
-                "feedback": lambda out, err: "Il finally deve stampare 'Connessione chiusa' 2 volte (una per ogni chiamata). Aggiungi messaggi per bucket trovato e non trovato.",
+                "feedback": lambda out, err: "Il finally deve stampare 'Connessione chiusa' 2 volte (una per ogni chiamata). Aggiungi messaggi per scaffale trovato e non trovato.",
                 "hint": (
                     'def accedi_bucket(nome):\n'
                     '    db = {"prod-logs": "dati critici", "dev-logs": "dati test"}\n'
                     '    try:\n'
                     '        print(f"Accesso OK: {db[nome]}")\n'
                     '    except KeyError:\n'
-                    '        print(f"Bucket non esiste: {nome}")\n'
+                    '        print(f"Scaffale non esiste: {nome}")\n'
                     '    finally:\n'
                     '        print("Connessione chiusa")\n'
                     '\n'
                     'accedi_bucket("prod-logs")\n'
-                    'accedi_bucket("bucket-inesistente")\n'
+                    'accedi_bucket("scaffale-inesistente")\n'
                 ),
                 "xp_bonus": 10,
             },
@@ -2541,14 +1210,14 @@ source .venv/bin/activate             # attiva (Linux/Mac)
 
 ### pip — installa librerie
 ```bash
-pip install boto3 streamlit           # installa
+pip install requests streamlit           # installa
 pip freeze > requirements.txt        # congela versioni
 pip install -r requirements.txt      # installa da file
 ```
 
 ### requirements.txt
 ```
-boto3==1.34.0
+requests==1.34.0
 streamlit==1.40.0
 requests==2.31.0
 ```
@@ -2556,7 +1225,7 @@ requests==2.31.0
 ### Strumenti moderni
 ```bash
 pip install uv        # pip alternativo, molto più veloce
-uv pip install boto3  # stesso interfaccia di pip
+uv pip install requests  # stesso interfaccia di pip
 ```
 
 ### Controllare l'ambiente da Python
@@ -2596,11 +1265,11 @@ print(sys.version_info)   # sys.version_info(major=3, minor=11, ...)
                 "xp_bonus": 0,
             },
             {
-                "testo": "Simula la creazione di un `requirements.txt`: scrivi una lista di pacchetti con versioni (`boto3==1.34.0`, `streamlit==1.40.0`, `requests==2.31.0`) e stampali uno per riga.",
-                "placeholder": "pacchetti = [\n    \"boto3==1.34.0\",\n    # aggiungi gli altri\n]\nfor p in pacchetti:\n    print(p)",
-                "check": lambda out, err, vs: err is None and "boto3" in out and "streamlit" in out and "==" in out,
+                "testo": "Simula la creazione di un `requirements.txt`: scrivi una lista di pacchetti con versioni (`requests==1.34.0`, `streamlit==1.40.0`, `requests==2.31.0`) e stampali uno per riga.",
+                "placeholder": "pacchetti = [\n    \"requests==1.34.0\",\n    # aggiungi gli altri\n]\nfor p in pacchetti:\n    print(p)",
+                "check": lambda out, err, vs: err is None and "requests" in out and "streamlit" in out and "==" in out,
                 "feedback": lambda out, err: "Stampa ogni pacchetto con la versione usando ==",
-                "hint": 'pacchetti = [\n    "boto3==1.34.0",\n    "streamlit==1.40.0",\n    "requests==2.31.0",\n]\nfor p in pacchetti:\n    print(p)',
+                "hint": 'pacchetti = [\n    "requests==1.34.0",\n    "streamlit==1.40.0",\n    "requests==2.31.0",\n]\nfor p in pacchetti:\n    print(p)',
                 "xp_bonus": 0,
             },
             {
@@ -2618,7 +1287,7 @@ print(sys.version_info)   # sys.version_info(major=3, minor=11, ...)
                 "xp_bonus": 5,
             },
             {
-                "testo": "🏆 **BOSS**: Scrivi `verifica_ambiente()` che controlla: (1) Python ≥ 3.8, (2) se `boto3` è importabile. Stampa un report con OK/MANCANTE per ogni check.",
+                "testo": "🏆 **BOSS**: Scrivi `verifica_ambiente()` che controlla: (1) Python ≥ 3.8, (2) se `requests` è importabile. Stampa un report con OK/MANCANTE per ogni check.",
                 "placeholder": (
                     'import sys\n'
                     '\n'
@@ -2627,18 +1296,18 @@ print(sys.version_info)   # sys.version_info(major=3, minor=11, ...)
                     '    py_ok = sys.version_info >= (3, 8)\n'
                     '    print(f"Python 3.8+: {\'OK\' if py_ok else \'AGGIORNA\'}")\n'
                     '    \n'
-                    '    # check 2: boto3 importabile\n'
+                    '    # check 2: requests importabile\n'
                     '    try:\n'
-                    '        import boto3\n'
-                    '        print("boto3: OK")\n'
+                    '        import requests\n'
+                    '        print("requests: OK")\n'
                     '    except ImportError:\n'
-                    '        print("boto3: MANCANTE")\n'
+                    '        print("requests: MANCANTE")\n'
                     '\n'
                     'verifica_ambiente()'
                 ),
                 "check": lambda out, err, vs: err is None and "Python 3.8+" in out and ("OK" in out or "MANCANTE" in out),
                 "feedback": lambda out, err: "La funzione deve stampare il risultato di ogni check",
-                "hint": "try: import boto3; print('boto3: OK') except ImportError: print('boto3: MANCANTE')",
+                "hint": "try: import requests; print('requests: OK') except ImportError: print('requests: MANCANTE')",
                 "xp_bonus": 10,
             },
         ],
@@ -2694,7 +1363,7 @@ while chunk := file.read(8192):
             '# Ternary\n'
             'credito = 15.0\n'
             'stato = "OK" if credito > 0 else "ESAURITO"\n'
-            'print(f"Credito AWS: {stato}")\n'
+            'print(f"Credito Python: {stato}")\n'
             '\n'
             '# Divisione intera\n'
             'pagine = 150 // 20\n'
@@ -2718,7 +1387,7 @@ while chunk := file.read(8192):
                 "xp_bonus": 0,
             },
             {
-                "testo": "Hai `100` oggetti S3 da listare a `20` per pagina. Calcola il numero di pagine intere con divisione intera.",
+                "testo": "Hai `100` oggetti Disco da listare a `20` per pagina. Calcola il numero di pagine intere con divisione intera.",
                 "placeholder": 'totale = 100\nper_pagina = 20\npagine = ...\nprint(f"Pagine: {pagine}")',
                 "check": lambda out, err, vs: err is None and "5" in _ol(out),
                 "feedback": lambda out, err: "100 // 20 = 5 pagine esatte",
@@ -2759,7 +1428,7 @@ while chunk := file.read(8192):
         ],
     },
     {
-        "id": "scope_closures", "title": "Scope, Lambda e Closures",
+        "id": "scope_closures", "title": "Scope, Modulo e Closures",
         "icon": "🔍", "world": "🧅 Labirinto degli Scope",
         "teoria": """
 ### LEGB — ordine di ricerca dei nomi
@@ -2791,13 +1460,13 @@ def incrementa():
     contatore += 1
 ```
 
-### Lambda — funzione anonima
+### Modulo — funzione anonima
 ```python
 doppio = lambda x: x * 2
 print(doppio(5))   # 10
 
 # Usata come key per sorted
-istanze = sorted(istanze, key=lambda x: x["costo_ora"])
+prodotti = sorted(prodotti, key=lambda x: x["prezzo"])
 ```
 
 ### Closures
@@ -2814,7 +1483,7 @@ print(triplo(5))  # 15
 ```
 """,
         "esempio": (
-            '# Lambda + sorted\n'
+            '# Modulo + sorted\n'
             'risorse = [\n'
             '    {"nome": "db",  "costo": 0.192},\n'
             '    {"nome": "web", "costo": 0.096},\n'
@@ -2954,7 +1623,7 @@ profonda["lista"].append(5)       # originale intatto
             'print(f"a={a}, b={b}")\n'
             '\n'
             '# deepcopy\n'
-            'config = {"regioni": ["eu-west-1", "us-east-1"]}\n'
+            'config = {"regioni": ["nord", "sud"]}\n'
             'config_prod = copy.deepcopy(config)\n'
             'config_prod["regioni"].append("ap-southeast-1")\n'
             'print("originale:", config["regioni"])\n'
@@ -3036,13 +1705,13 @@ profonda["lista"].append(5)       # originale intatto
 ### break e continue
 ```python
 # break — esci subito dal loop
-for ist in istanze:
+for ist in prodotti:
     if ist["stato"] == "running":
         prima_running = ist
         break   # non serve continuare
 
 # continue — salta questa iterazione
-for ist in istanze:
+for ist in prodotti:
     if ist["stato"] == "stopped":
         continue   # non interessano
     print(f"Attiva: {ist['id']}")
@@ -3051,7 +1720,7 @@ for ist in istanze:
 ### for/else e while/else
 ```python
 # else esegue SOLO se il loop non ha fatto break
-for ist in istanze:
+for ist in prodotti:
     if ist["id"] == target:
         print("Trovato!")
         break
@@ -3074,7 +1743,7 @@ def classifica_http(codice):
 ```
 """,
         "esempio": (
-            'istanze = [\n'
+            'prodotti = [\n'
             '    {"id": "i-001", "stato": "stopped"},\n'
             '    {"id": "i-002", "stato": "running"},\n'
             '    {"id": "i-003", "stato": "running"},\n'
@@ -3082,12 +1751,12 @@ def classifica_http(codice):
             '\n'
             '# Trova la prima running\n'
             'prima = None\n'
-            'for ist in istanze:\n'
+            'for ist in prodotti:\n'
             '    if ist["stato"] == "running":\n'
             '        prima = ist\n'
             '        break\n'
             'else:\n'
-            '    print("Nessuna istanza running!")\n'
+            '    print("Nessuna prodotto running!")\n'
             '\n'
             'if prima:\n'
             '    print(f"Prima running: {prima[\'id\']}")'
@@ -3110,11 +1779,11 @@ def classifica_http(codice):
                 "xp_bonus": 0,
             },
             {
-                "testo": "Cerca `'i-005'` nella lista di istanze con `for/else`. Stampa `'Trovato'` se esiste, `'Non trovato'` altrimenti.",
+                "testo": "Cerca `'i-005'` nella lista di prodotti con `for/else`. Stampa `'Trovato'` se esiste, `'Non trovato'` altrimenti.",
                 "placeholder": (
-                    'istanze = ["i-001", "i-002", "i-003"]\n'
+                    'prodotti = ["i-001", "i-002", "i-003"]\n'
                     'target = "i-005"\n'
-                    'for ist in istanze:\n'
+                    'for ist in prodotti:\n'
                     '    if ist == target:\n'
                     '        print("Trovato")\n'
                     '        break\n'
@@ -3147,9 +1816,9 @@ def classifica_http(codice):
                 "xp_bonus": 0,
             },
             {
-                "testo": "🏆 **BOSS**: Scrivi `cerca_istanza(lista, target_id)` che usa for/break/else e ritorna l'istanza trovata o `None`. Testa con ID presente e assente.",
+                "testo": "🏆 **BOSS**: Scrivi `cerca_istanza(lista, target_id)` che usa for/break/else e ritorna l'prodotto trovata o `None`. Testa con ID presente e assente.",
                 "placeholder": (
-                    'istanze = [\n'
+                    'prodotti = [\n'
                     '    {"id": "i-001", "stato": "running"},\n'
                     '    {"id": "i-002", "stato": "stopped"},\n'
                     ']\n'
@@ -3160,8 +1829,8 @@ def classifica_http(codice):
                     '            return ist\n'
                     '    return None\n'
                     '\n'
-                    'print(cerca_istanza(istanze, "i-001"))\n'
-                    'print(cerca_istanza(istanze, "i-999"))'
+                    'print(cerca_istanza(prodotti, "i-001"))\n'
+                    'print(cerca_istanza(prodotti, "i-999"))'
                 ),
                 "check": lambda out, err, vs: err is None and "i-001" in out and "None" in out,
                 "feedback": lambda out, err: "La funzione deve trovare i-001 e ritornare None per i-999",
@@ -3210,13 +1879,13 @@ for x in islice(generatore_infinito(), 5):
 tutti = list(chain([1, 2], [3, 4], [5]))
 ```
 
-### Pattern boto3 — paginazione lazy
+### Pattern — lettura lazy a blocchi
 ```python
-def leggi_oggetti(s3, bucket):
-    paginatore = s3.get_paginator("list_objects_v2")
-    for pagina in paginatore.paginate(Bucket=bucket):
-        for obj in pagina.get("Contents", []):
-            yield obj["Key"]
+def leggi_righe(file_lista):
+    for nome in file_lista:
+        with open(nome) as f:
+            for riga in f:
+                yield riga.strip()
 ```
 """,
         "esempio": (
@@ -3314,28 +1983,28 @@ def leggi_oggetti(s3, bucket):
         "id": "oop_base", "title": "OOP Base",
         "icon": "🏗️", "world": "🏛️ Accademia degli Oggetti",
         "teoria": """
-### Classe e istanza
+### Classe e prodotto
 ```python
-class AWSResource:
-    SERVIZI = ["EC2", "S3", "RDS"]   # attributo di classe
+class Risorsa:
+    SERVIZI = ["Server", "Disco", "Database"]   # attributo di classe
 
     def __init__(self, id, regione):
-        self.id      = id            # attributo di istanza
+        self.id      = id            # attributo di prodotto
         self.regione = regione
 
-    def arn(self):
-        return f"arn:aws:::{self.regione}:{self.id}"
+    def etichetta(self):
+        return f"{self.regione}/{self.id}"
 
-# Crea istanze
-server = AWSResource("i-001", "eu-west-1")
-db     = AWSResource("db-001", "us-east-1")
+# Crea prodotti
+server = Risorsa("i-001", "nord")
+db     = Risorsa("db-001", "sud")
 
-print(server.arn())   # ogni istanza ha il suo ARN
+print(server.etichetta())   # ogni prodotto ha la sua etichetta
 ```
 
 ### Ereditarietà
 ```python
-class EC2(AWSResource):
+class Server(Risorsa):
     def __init__(self, id, regione, tipo):
         super().__init__(id, regione)   # chiama il genitore
         self.tipo = tipo
@@ -3343,13 +2012,13 @@ class EC2(AWSResource):
     def costo_mensile(self, prezzo_ora):
         return round(prezzo_ora * 730, 2)
 
-server = EC2("i-001", "eu-west-1", "t3.micro")
-print(server.arn())            # ereditato
+server = Server("i-001", "nord", "base")
+print(server.etichetta())      # ereditato
 print(server.costo_mensile(0.023))  # 16.79
 ```
 """,
         "esempio": (
-            'class Istanza:\n'
+            'class Prodotto:\n'
             '    def __init__(self, id, tipo, stato="stopped"):\n'
             '        self.id    = id\n'
             '        self.tipo  = tipo\n'
@@ -3362,35 +2031,35 @@ print(server.costo_mensile(0.023))  # 16.79
             '    def info(self):\n'
             '        return f"{self.id} ({self.tipo}) → {self.stato}"\n'
             '\n'
-            'server = Istanza("i-001", "t3.micro")\n'
+            'server = Prodotto("i-001", "base")\n'
             'print(server.info())\n'
             'server.avvia()\n'
             'print(server.info())'
         ),
         "esercizi": [
             {
-                "testo": "Crea una classe `Bucket` con `__init__(self, nome, regione)` e un metodo `uri()` che ritorna `s3://{nome}`. Stampa `uri()` per un bucket `logs` in `eu-west-1`.",
+                "testo": "Crea una classe `Scaffale` con `__init__(self, nome, regione)` e un metodo `uri()` che ritorna `item://{nome}`. Stampa `uri()` per un scaffale `logs` in `nord`.",
                 "placeholder": (
-                    'class Bucket:\n'
+                    'class Scaffale:\n'
                     '    def __init__(self, nome, regione):\n'
                     '        self.nome   = nome\n'
                     '        self.regione = regione\n'
                     '\n'
                     '    def uri(self):\n'
-                    '        return f"s3://{self.nome}"\n'
+                    '        return f"item://{self.nome}"\n'
                     '\n'
-                    'b = Bucket("logs", "eu-west-1")\n'
+                    'b = Scaffale("logs", "nord")\n'
                     'print(b.uri())'
                 ),
-                "check": lambda out, err, vs: err is None and "s3://logs" in out.strip(),
-                "feedback": lambda out, err: "uri() deve ritornare f's3://{self.nome}'",
-                "hint": 'return f"s3://{self.nome}"',
+                "check": lambda out, err, vs: err is None and "item://logs" in out.strip(),
+                "feedback": lambda out, err: "uri() deve ritornare f'item://{self.nome}'",
+                "hint": 'return f"item://{self.nome}"',
                 "xp_bonus": 0,
             },
             {
-                "testo": "Aggiungi a `Bucket` un metodo `aggiungi_tag(self, chiave, valore)` che salva i tag in un dizionario `self.tags`. Aggiungi `env=prod` e stampa `b.tags`.",
+                "testo": "Aggiungi a `Scaffale` un metodo `aggiungi_tag(self, chiave, valore)` che salva i tag in un dizionario `self.tags`. Aggiungi `env=prod` e stampa `b.tags`.",
                 "placeholder": (
-                    'class Bucket:\n'
+                    'class Scaffale:\n'
                     '    def __init__(self, nome, regione):\n'
                     '        self.nome    = nome\n'
                     '        self.regione = regione\n'
@@ -3399,7 +2068,7 @@ print(server.costo_mensile(0.023))  # 16.79
                     '    def aggiungi_tag(self, chiave, valore):\n'
                     '        self.tags[chiave] = valore\n'
                     '\n'
-                    'b = Bucket("logs", "eu-west-1")\n'
+                    'b = Scaffale("logs", "nord")\n'
                     'b.aggiungi_tag("env", "prod")\n'
                     'print(b.tags)'
                 ),
@@ -3409,31 +2078,31 @@ print(server.costo_mensile(0.023))  # 16.79
                 "xp_bonus": 0,
             },
             {
-                "testo": "Crea `EC2(Bucket)` che estende `Bucket` e aggiunge `tipo_istanza`. Usa `super().__init__()`. Stampa `uri()` (ereditato) e `tipo_istanza`.",
+                "testo": "Crea `Server(Scaffale)` che estende `Scaffale` e aggiunge `tipo_istanza`. Usa `super().__init__()`. Stampa `uri()` (ereditato) e `tipo_istanza`.",
                 "placeholder": (
-                    'class Bucket:\n'
+                    'class Scaffale:\n'
                     '    def __init__(self, nome, regione):\n'
                     '        self.nome    = nome\n'
                     '        self.regione = regione\n'
-                    '    def uri(self): return f"s3://{self.nome}"\n'
+                    '    def uri(self): return f"item://{self.nome}"\n'
                     '\n'
-                    'class EC2(Bucket):\n'
+                    'class Server(Scaffale):\n'
                     '    def __init__(self, nome, regione, tipo_istanza):\n'
                     '        super().__init__(nome, regione)\n'
                     '        self.tipo_istanza = tipo_istanza\n'
                     '\n'
-                    'vm = EC2("web-server", "eu-west-1", "t3.micro")\n'
+                    'vm = Server("web-server", "nord", "base")\n'
                     'print(vm.uri())\n'
                     'print(vm.tipo_istanza)'
                 ),
-                "check": lambda out, err, vs: err is None and "s3://web-server" in out and "t3.micro" in out,
+                "check": lambda out, err, vs: err is None and "item://web-server" in out and "base" in out,
                 "feedback": lambda out, err: "super().__init__() inizializza il genitore, poi aggiunge tipo_istanza",
                 "hint": "super().__init__(nome, regione)",
                 "xp_bonus": 0,
             },
             {
                 "tipo": "predict",
-                "testo": "🔍 **PREVEDI**: Cosa stamperà questo codice? Attenzione agli attributi di classe vs istanza.",
+                "testo": "🔍 **PREVEDI**: Cosa stamperà questo codice? Attenzione agli attributi di classe vs prodotto.",
                 "codice": (
                     'class Counter:\n'
                     '    totale = 0\n'
@@ -3452,9 +2121,9 @@ print(server.costo_mensile(0.023))  # 16.79
                 "xp_bonus": 5,
             },
             {
-                "testo": "🏆 **BOSS**: Crea `AWSResource` base con `id, regione, tipo`. Aggiungi `EC2` e `S3Bucket` come sottoclassi con metodo `costo_mensile()` diverso. Stampa i costi di 2 istanze.",
+                "testo": "🏆 **BOSS**: Crea `Risorsa` base con `id, regione, tipo`. Aggiungi `Server` e `Articolo` come sottoclassi con metodo `costo_mensile()` diverso. Stampa i costi di 2 prodotti.",
                 "placeholder": (
-                    'class AWSResource:\n'
+                    'class Risorsa:\n'
                     '    def __init__(self, id, regione, tipo):\n'
                     '        self.id      = id\n'
                     '        self.regione = regione\n'
@@ -3462,28 +2131,28 @@ print(server.costo_mensile(0.023))  # 16.79
                     '    def costo_mensile(self):\n'
                     '        raise NotImplementedError\n'
                     '\n'
-                    'class EC2(AWSResource):\n'
+                    'class Server(Risorsa):\n'
                     '    def __init__(self, id, regione, prezzo_ora):\n'
-                    '        super().__init__(id, regione, "EC2")\n'
+                    '        super().__init__(id, regione, "Server")\n'
                     '        self.prezzo_ora = prezzo_ora\n'
                     '    def costo_mensile(self):\n'
                     '        return round(self.prezzo_ora * 730, 2)\n'
                     '\n'
-                    'class S3Bucket(AWSResource):\n'
+                    'class Articolo(Risorsa):\n'
                     '    def __init__(self, id, regione, gb):\n'
-                    '        super().__init__(id, regione, "S3")\n'
+                    '        super().__init__(id, regione, "Disco")\n'
                     '        self.gb = gb\n'
                     '    def costo_mensile(self):\n'
                     '        return round(self.gb * 0.023, 2)\n'
                     '\n'
-                    'server = EC2("i-001", "eu-west-1", 0.096)\n'
-                    'bucket = S3Bucket("logs", "eu-west-1", 500)\n'
-                    'print(f"EC2: ${server.costo_mensile()}")\n'
-                    'print(f"S3:  ${bucket.costo_mensile()}")'
+                    'server = Server("i-001", "nord", 0.096)\n'
+                    'scaffale = Articolo("logs", "nord", 500)\n'
+                    'print(f"Server: ${server.costo_mensile()}")\n'
+                    'print(f"Disco:  ${scaffale.costo_mensile()}")'
                 ),
-                "check": lambda out, err, vs: err is None and "EC2:" in out and "S3:" in out and "$" in out,
+                "check": lambda out, err, vs: err is None and "Server:" in out and "Disco:" in out and "$" in out,
                 "feedback": lambda out, err: "Le due sottoclassi devono avere costo_mensile() con logiche diverse",
-                "hint": "EC2: prezzo_ora * 730. S3: gb * 0.023",
+                "hint": "Server: prezzo_ora * 730. Disco: gb * 0.023",
                 "xp_bonus": 15,
             },
         ],
@@ -3514,7 +2183,7 @@ class Risorsa:
 
 ### @property
 ```python
-class EC2:
+class Server:
     def __init__(self, prezzo_ora):
         self._prezzo_ora = prezzo_ora
 
@@ -3532,10 +2201,10 @@ class EC2:
 from dataclasses import dataclass, field
 
 @dataclass
-class Istanza:
+class Prodotto:
     id:      str
     tipo:    str
-    regione: str = "eu-west-1"
+    regione: str = "nord"
     tags:    list = field(default_factory=list)
     # __init__, __repr__, __eq__ generati automaticamente
 ```
@@ -3544,9 +2213,9 @@ class Istanza:
             'from dataclasses import dataclass, field\n'
             '\n'
             '@dataclass\n'
-            'class Bucket:\n'
+            'class Scaffale:\n'
             '    nome:    str\n'
-            '    regione: str = "eu-west-1"\n'
+            '    regione: str = "nord"\n'
             '    size_gb: float = 0.0\n'
             '    tags:    list = field(default_factory=list)\n'
             '\n'
@@ -3555,31 +2224,31 @@ class Istanza:
             '        return round(self.size_gb * 0.023, 4)\n'
             '\n'
             '    def __str__(self):\n'
-            '        return f"s3://{self.nome} ({self.size_gb}GB)"\n'
+            '        return f"item://{self.nome} ({self.size_gb}GB)"\n'
             '\n'
-            'b = Bucket("prod-logs", size_gb=500)\n'
+            'b = Scaffale("prod-logs", size_gb=500)\n'
             'b.tags.append("env:prod")\n'
             'print(b)\n'
             'print(f"Costo: ${b.costo_mensile}")'
         ),
         "esercizi": [
             {
-                "testo": "Aggiungi `__str__` a una classe `Istanza(id, tipo)` che ritorna `'EC2 i-001 (t3.micro)'`. Stampa l'istanza con `print()`.",
+                "testo": "Aggiungi `__str__` a una classe `Prodotto(id, tipo)` che ritorna `'Server i-001 (base)'`. Stampa l'prodotto con `print()`.",
                 "placeholder": (
-                    'class Istanza:\n'
+                    'class Prodotto:\n'
                     '    def __init__(self, id, tipo):\n'
                     '        self.id   = id\n'
                     '        self.tipo = tipo\n'
                     '\n'
                     '    def __str__(self):\n'
-                    '        return f"EC2 {self.id} ({self.tipo})"\n'
+                    '        return f"Server {self.id} ({self.tipo})"\n'
                     '\n'
-                    'ist = Istanza("i-001", "t3.micro")\n'
+                    'ist = Prodotto("i-001", "base")\n'
                     'print(ist)'
                 ),
-                "check": lambda out, err, vs: err is None and "EC2 i-001 (t3.micro)" in out.strip(),
+                "check": lambda out, err, vs: err is None and "Server i-001 (base)" in out.strip(),
                 "feedback": lambda out, err: "__str__ deve ritornare la stringa formattata",
-                "hint": 'return f"EC2 {self.id} ({self.tipo})"',
+                "hint": 'return f"Server {self.id} ({self.tipo})"',
                 "xp_bonus": 0,
             },
             {
@@ -3607,23 +2276,23 @@ class Istanza:
                 "xp_bonus": 0,
             },
             {
-                "testo": "Riscrivi `Istanza(id, tipo, regione='eu-west-1')` come `@dataclass`. Verifica che `__repr__` sia generato automaticamente.",
+                "testo": "Riscrivi `Prodotto(id, tipo, regione='nord')` come `@dataclass`. Verifica che `__repr__` sia generato automaticamente.",
                 "placeholder": (
                     'from dataclasses import dataclass\n'
                     '\n'
                     '@dataclass\n'
-                    'class Istanza:\n'
+                    'class Prodotto:\n'
                     '    id:      str\n'
                     '    tipo:    str\n'
-                    '    regione: str = "eu-west-1"\n'
+                    '    regione: str = "nord"\n'
                     '\n'
-                    'ist = Istanza("i-001", "t3.micro")\n'
+                    'ist = Prodotto("i-001", "base")\n'
                     'print(repr(ist))\n'
                     'print(ist.id)'
                 ),
-                "check": lambda out, err, vs: err is None and "i-001" in out and "t3.micro" in out,
+                "check": lambda out, err, vs: err is None and "i-001" in out and "base" in out,
                 "feedback": lambda out, err: "@dataclass genera __repr__ automaticamente — deve contenere i valori",
-                "hint": "@dataclass genera repr come Istanza(id='i-001', tipo='t3.micro', regione='eu-west-1')",
+                "hint": "@dataclass genera repr come Prodotto(id='i-001', tipo='base', regione='nord')",
                 "xp_bonus": 0,
             },
             {
@@ -3651,34 +2320,34 @@ class Istanza:
                 "xp_bonus": 0,
             },
             {
-                "testo": "🏆 **BOSS**: Classe `Portfolio` con lista di `Istanza` (dataclass). Aggiungi `__len__` (numero istanze), `__str__` (lista nomi), `costo_totale` come property. Stampa tutto.",
+                "testo": "🏆 **BOSS**: Classe `Portfolio` con lista di `Prodotto` (dataclass). Aggiungi `__len__` (numero prodotti), `__str__` (lista nomi), `costo_totale` come property. Stampa tutto.",
                 "placeholder": (
                     'from dataclasses import dataclass, field\n'
                     '\n'
                     '@dataclass\n'
-                    'class Istanza:\n'
+                    'class Prodotto:\n'
                     '    id:         str\n'
-                    '    costo_ora:  float\n'
+                    '    prezzo:  float\n'
                     '\n'
                     'class Portfolio:\n'
                     '    def __init__(self):\n'
-                    '        self.istanze = []\n'
-                    '    def aggiungi(self, ist): self.istanze.append(ist)\n'
-                    '    def __len__(self): return len(self.istanze)\n'
-                    '    def __str__(self): return ", ".join(i.id for i in self.istanze)\n'
+                    '        self.prodotti = []\n'
+                    '    def aggiungi(self, ist): self.prodotti.append(ist)\n'
+                    '    def __len__(self): return len(self.prodotti)\n'
+                    '    def __str__(self): return ", ".join(i.id for i in self.prodotti)\n'
                     '    @property\n'
-                    '    def costo_totale(self): return sum(i.costo_ora * 730 for i in self.istanze)\n'
+                    '    def costo_totale(self): return sum(i.prezzo * 730 for i in self.prodotti)\n'
                     '\n'
                     'p = Portfolio()\n'
-                    'p.aggiungi(Istanza("i-001", 0.096))\n'
-                    'p.aggiungi(Istanza("i-002", 0.023))\n'
+                    'p.aggiungi(Prodotto("i-001", 0.096))\n'
+                    'p.aggiungi(Prodotto("i-002", 0.023))\n'
                     'print(len(p))\n'
                     'print(str(p))\n'
                     'print(f"Costo: ${p.costo_totale:.2f}")'
                 ),
                 "check": lambda out, err, vs: err is None and "2" in _ol(out) and "i-001" in out and "Costo:" in out,
                 "feedback": lambda out, err: "len(p) deve dare 2, str(p) i nomi, costo_totale la somma",
-                "hint": "sum(i.costo_ora * 730 for i in self.istanze)",
+                "hint": "sum(i.prezzo * 730 for i in self.prodotti)",
                 "xp_bonus": 15,
             },
         ],
@@ -3701,7 +2370,7 @@ def log(func):
 
 @log                          # equivale a: crea = log(crea)
 def crea_bucket(nome):
-    print(f"Bucket {nome} creato")
+    print(f"Scaffale {nome} creato")
 ```
 
 ### @functools.wraps — preserva i metadati
@@ -3935,7 +2604,7 @@ print(contatore.most_common(2))  # [('ERROR', 3), ('INFO', 1)]
 from collections import defaultdict
 
 per_regione = defaultdict(list)
-for ist in istanze:
+for ist in prodotti:
     per_regione[ist["regione"]].append(ist["id"])
 # Nessun KeyError — crea lista vuota automaticamente
 ```
@@ -3971,25 +2640,25 @@ for ist in istanze:
                 "xp_bonus": 0,
             },
             {
-                "testo": "Con `parole = ['boto3','python','boto3','aws','python','boto3']`, usa `Counter` per trovare la parola più frequente e quante volte compare.",
+                "testo": "Con `parole = ['requests','python','requests','demo','python','requests']`, usa `Counter` per trovare la parola più frequente e quante volte compare.",
                 "placeholder": (
                     'from collections import Counter\n'
-                    'parole = ["boto3","python","boto3","aws","python","boto3"]\n'
+                    'parole = ["requests","python","requests","demo","python","requests"]\n'
                     'c = Counter(parole)\n'
                     'parola, freq = c.most_common(1)[0]\n'
                     'print(f"{parola}: {freq}")'
                 ),
-                "check": lambda out, err, vs: err is None and "boto3: 3" in out.strip(),
+                "check": lambda out, err, vs: err is None and "requests: 3" in out.strip(),
                 "feedback": lambda out, err: "Counter conta le occorrenze. most_common(1) ritorna la più frequente.",
-                "hint": "c.most_common(1)[0] → ('boto3', 3)",
+                "hint": "c.most_common(1)[0] → ('requests', 3)",
                 "xp_bonus": 0,
             },
             {
-                "testo": "Con `defaultdict(list)`, raggruppa le istanze per `stato` da una lista di dict. Stampa quante istanze ha ogni stato.",
+                "testo": "Con `defaultdict(list)`, raggruppa le prodotti per `stato` da una lista di dict. Stampa quante prodotti ha ogni stato.",
                 "placeholder": (
                     'from collections import defaultdict\n'
                     '\n'
-                    'istanze = [\n'
+                    'prodotti = [\n'
                     '    {"id": "i-001", "stato": "running"},\n'
                     '    {"id": "i-002", "stato": "stopped"},\n'
                     '    {"id": "i-003", "stato": "running"},\n'
@@ -3997,7 +2666,7 @@ for ist in istanze:
                     ']\n'
                     '\n'
                     'per_stato = defaultdict(list)\n'
-                    'for ist in istanze:\n'
+                    'for ist in prodotti:\n'
                     '    per_stato[ist["stato"]].append(ist["id"])\n'
                     '\n'
                     'for stato, ids in per_stato.items():\n'
@@ -4166,19 +2835,19 @@ with sessione("db") as s:
                 "xp_bonus": 0,
             },
             {
-                "testo": "Usa `assert` per verificare che una lista di istanze non sia vuota prima di processarla. Gestisci `AssertionError` con un messaggio chiaro.",
+                "testo": "Usa `assert` per verificare che una lista di prodotti non sia vuota prima di processarla. Gestisci `AssertionError` con un messaggio chiaro.",
                 "placeholder": (
-                    'istanze = []\n'
+                    'prodotti = []\n'
                     '\n'
                     'try:\n'
-                    '    assert len(istanze) > 0, "Lista istanze vuota"\n'
-                    '    print("Processo", len(istanze), "istanze")\n'
+                    '    assert len(prodotti) > 0, "Lista prodotti vuota"\n'
+                    '    print("Processo", len(prodotti), "prodotti")\n'
                     'except AssertionError as e:\n'
                     '    print(f"Attenzione: {e}")'
                 ),
-                "check": lambda out, err, vs: err is None and "Lista istanze vuota" in out.strip(),
+                "check": lambda out, err, vs: err is None and "Lista prodotti vuota" in out.strip(),
                 "feedback": lambda out, err: "AssertionError viene lanciato perché la lista è vuota",
-                "hint": "assert len(istanze) > 0, 'Lista istanze vuota'",
+                "hint": "assert len(prodotti) > 0, 'Lista prodotti vuota'",
                 "xp_bonus": 0,
             },
             {
@@ -4203,15 +2872,15 @@ with sessione("db") as s:
                 "xp_bonus": 0,
             },
             {
-                "testo": "🏆 **BOSS**: Crea una gerarchia: `AWSError(Exception)` base, `PermissionError(AWSError)`, `ResourceNotFoundError(AWSError)`. Scrivi `accedi(risorsa)` che lancia l'errore giusto. Cattura con except AWSError.",
+                "testo": "🏆 **BOSS**: Crea una gerarchia: `AppError(Exception)` base, `PermissionError(AppError)`, `ResourceNotFoundError(AppError)`. Scrivi `accedi(risorsa)` che lancia l'errore giusto. Cattura con except AppError.",
                 "placeholder": (
-                    'class AWSError(Exception):\n'
+                    'class AppError(Exception):\n'
                     '    pass\n'
                     '\n'
-                    'class PermessoNegatoError(AWSError):\n'
+                    'class PermessoNegatoError(AppError):\n'
                     '    pass\n'
                     '\n'
-                    'class RisorsaAssente(AWSError):\n'
+                    'class RisorsaAssente(AppError):\n'
                     '    pass\n'
                     '\n'
                     'def accedi(risorsa):\n'
@@ -4221,15 +2890,15 @@ with sessione("db") as s:
                     '        raise RisorsaAssente(f"Risorsa non trovata: {risorsa}")\n'
                     '    print(f"Accesso OK: {risorsa}")\n'
                     '\n'
-                    'for r in ["prod-bucket", "segreto", "inesistente"]:\n'
+                    'for r in ["prod-scaffale", "segreto", "inesistente"]:\n'
                     '    try:\n'
                     '        accedi(r)\n'
-                    '    except AWSError as e:\n'
-                    '        print(f"AWS Error: {e}")'
+                    '    except AppError as e:\n'
+                    '        print(f"Python Error: {e}")'
                 ),
                 "check": lambda out, err, vs: err is None and "Accesso OK" in out and "Accesso negato" in out and "non trovata" in out,
                 "feedback": lambda out, err: "Ogni risorsa deve produrre l'output corretto: OK, negato, non trovata",
-                "hint": "except AWSError cattura sia PermessoNegatoError che RisorsaAssente",
+                "hint": "except AppError cattura sia PermessoNegatoError che RisorsaAssente",
                 "xp_bonus": 15,
             },
         ],
@@ -4250,7 +2919,7 @@ def configura(**opzioni):    # dizionario di keyword
     for k, v in opzioni.items():
         print(f"{k} = {v}")
 
-configura(regione="eu-west-1", debug=True)
+configura(regione="nord", debug=True)
 ```
 
 ### Spacchettare con * e **
@@ -4258,17 +2927,17 @@ configura(regione="eu-west-1", debug=True)
 numeri = [1, 2, 3]
 print(*numeri)            # stampa: 1 2 3
 
-params = {"Bucket": "log", "Key": "file.txt"}
-s3.get_object(**params)   # equivale a s3.get_object(Bucket="log", Key="file.txt")
+params = {"nome": "report", "formato": "pdf"}
+genera(**params)          # equivale a genera(nome="report", formato="pdf")
 ```
 
-### Pattern boto3 — chiamata dinamica
+### Pattern — chiamata dinamica
 ```python
-params = {"Bucket": bucket}
+params = {"nome": nome}
 if versione:
-    params["VersionId"] = versione   # aggiunge solo se serve
+    params["versione"] = versione   # aggiunge solo se serve
 
-risposta = s3.get_object(**params)
+risultato = genera(**params)
 ```
 """,
         "esempio": (
@@ -4277,34 +2946,34 @@ risposta = s3.get_object(**params)
             '    for k, v in dettagli.items():\n'
             '        print(f"  {k}: {v}")\n'
             '\n'
-            'descrivi_risorsa("EC2", id="i-001", stato="running", regione="eu-west-1")\n'
+            'descrivi_risorsa("Server", id="i-001", stato="running", regione="nord")\n'
             'print("---")\n'
             'params = {"id": "i-002", "stato": "stopped"}\n'
-            'descrivi_risorsa("RDS", **params)'
+            'descrivi_risorsa("Database", **params)'
         ),
         "esercizi": [
             {
-                "testo": "Scrivi `stampa_config(**kwargs)` che stampa ogni parametro nel formato `chiave: valore`. Chiamala con `regione`, `servizio` e `timeout`.",
+                "testo": "Scrivi `stampa_config(**kwargs)` che stampa ogni parametro nel formato `chiave: valore`. Chiamala con `citta`, `reparto` e `timeout`.",
                 "placeholder": (
                     'def stampa_config(**kwargs):\n'
                     '    for k, v in kwargs.items():\n'
                     '        pass  # stampa k: v\n'
                     '\n'
-                    'stampa_config(regione="eu-west-1", servizio="s3", timeout=30)'
+                    'stampa_config(citta="nord", reparto="cucina", timeout=30)'
                 ),
-                "check": lambda out, err, vs: err is None and "regione" in out and "eu-west-1" in out and "timeout" in out,
+                "check": lambda out, err, vs: err is None and "citta" in out and "nord" in out and "timeout" in out,
                 "feedback": lambda out, err: 'Usa `print(f"{k}: {v}")` dentro il for loop',
                 "hint": 'print(f"{k}: {v}")',
                 "xp_bonus": 0,
             },
             {
-                "testo": 'Hai `params = {"Bucket": "logs", "Prefisso": "jan-2024"}`. Chiama `scarica(**kwargs)` (già scritta) usando **unpacking sul dizionario.',
+                "testo": 'Hai `params = {"Scaffale": "logs", "Prefisso": "jan-2024"}`. Chiama `scarica(**kwargs)` (già scritta) usando **unpacking sul dizionario.',
                 "placeholder": (
                     'def scarica(**kwargs):\n'
-                    '    bucket = kwargs.get("Bucket", "?")\n'
-                    '    print(f"Scarico da: {bucket}")\n'
+                    '    scaffale = kwargs.get("Scaffale", "?")\n'
+                    '    print(f"Scarico da: {scaffale}")\n'
                     '\n'
-                    'params = {"Bucket": "logs", "Prefisso": "jan-2024"}\n'
+                    'params = {"Scaffale": "logs", "Prefisso": "jan-2024"}\n'
                     '# chiama scarica con **unpacking'
                 ),
                 "check": lambda out, err, vs: err is None and "Scarico da: logs" in out.strip(),
@@ -4314,18 +2983,18 @@ risposta = s3.get_object(**params)
             },
             {
                 "tipo": "debug",
-                "testo": "🐛 **DEBUG**: Il codice chiama una funzione boto3 simulata ma ha 2 bug con unpacking.",
+                "testo": "🐛 **DEBUG**: Il codice chiama una funzione requests simulata ma ha 2 bug con unpacking.",
                 "placeholder": (
-                    'def get_object(Bucket, Key, VersionId=None):\n'
-                    '    print(f"Leggo s3://{Bucket}/{Key}")\n'
+                    'def get_object(Scaffale, Key, VersionId=None):\n'
+                    '    print(f"Leggo item://{Scaffale}/{Key}")\n'
                     '    if VersionId:\n'
                     '        print(f"Versione: {VersionId}")\n'
                     '\n'
-                    'params = {"Bucket": "dati", "Key": "report.csv"}\n'
+                    'params = {"Scaffale": "dati", "Key": "report.csv"}\n'
                     'get_object(params)        # BUG 1\n'
                     'get_object(*params)       # BUG 2: * su dict spacchetta le chiavi'
                 ),
-                "check": lambda out, err, vs: err is None and "Leggo s3://dati/report.csv" in out,
+                "check": lambda out, err, vs: err is None and "Leggo item://dati/report.csv" in out,
                 "feedback": lambda out, err: "BUG 1: `get_object(params)` → `get_object(**params)`. BUG 2: `*params` → `**params`",
                 "hint": "Usa sempre ** (doppio asterisco) per spacchettare dizionari",
                 "xp_bonus": 0,
@@ -4345,19 +3014,19 @@ risposta = s3.get_object(**params)
                 "xp_bonus": 5,
             },
             {
-                "testo": "🏆 **BOSS**: Scrivi `crea_filtri(**criteri)` che costruisce una lista `Filters` boto3 dal formato `[{'Name': k, 'Values': [v]}]`. Testa con 2 chiamate diverse.",
+                "testo": "🏆 **BOSS**: Scrivi `crea_filtri(**criteri)` che costruisce una lista `Filters` requests dal formato `[{'Name': k, 'Values': [v]}]`. Testa con 2 chiamate diverse.",
                 "placeholder": (
                     'def crea_filtri(**criteri):\n'
                     '    filters = []\n'
-                    '    # per ogni criterio, aggiungi il dict boto3\n'
+                    '    # per ogni criterio, aggiungi il dict requests\n'
                     '    return filters\n'
                     '\n'
                     'print(crea_filtri(stato="running"))\n'
-                    'print(crea_filtri(stato="stopped", tipo="t3.micro"))'
+                    'print(crea_filtri(stato="stopped", tipo="base"))'
                 ),
                 "check": lambda out, err, vs: (
                     err is None and "running" in out and "stopped" in out
-                    and "t3.micro" in out and "Name" in out
+                    and "base" in out and "Name" in out
                 ),
                 "feedback": lambda out, err: 'for k, v in criteri.items(): filters.append({"Name": k, "Values": [v]})',
                 "hint": 'for k, v in criteri.items():\n    filters.append({"Name": k, "Values": [v]})',
@@ -4390,19 +3059,18 @@ with open("config.json") as f:
 ```python
 import os
 
-regione = os.environ.get("AWS_REGION", "eu-west-1")  # default sicuro
+regione = os.environ.get("APP_CITTA", "nord")  # default sicuro
 debug   = os.environ.get("DEBUG", "false") == "true"
 ```
 
-### Credenziali AWS — la regola d'oro
+### Segreti e credenziali — la regola d'oro
 ```bash
-export AWS_ACCESS_KEY_ID="AKIA..."
-export AWS_SECRET_ACCESS_KEY="..."
-export AWS_DEFAULT_REGION="eu-west-1"
+export APP_TOKEN="..."
+export APP_CITTA="nord"
 ```
 ```python
-import boto3
-s3 = boto3.client("s3")  # legge le env var automaticamente
+import os
+token = os.environ["APP_TOKEN"]  # letto dall'ambiente, non dal codice
 ```
 > ⚠️ **Mai** scrivere credenziali nel codice sorgente.
 """,
@@ -4415,16 +3083,16 @@ s3 = boto3.client("s3")  # legge le env var automaticamente
             'for b in risposta["Buckets"]:\n'
             '    print(b["Name"])\n'
             '\n'
-            'regione = os.environ.get("AWS_REGION", "eu-west-1")\n'
+            'regione = os.environ.get("APP_CITTA", "nord")\n'
             'print(f"Regione: {regione}")'
         ),
         "esercizi": [
             {
-                "testo": 'Parsa la stringa JSON `\'{"istanza": "i-001", "stato": "running", "costo_ora": 0.096}\'` e stampa solo il valore di `stato`.',
+                "testo": 'Parsa la stringa JSON `\'{"prodotto": "i-001", "stato": "running", "prezzo": 0.096}\'` e stampa solo il valore di `stato`.',
                 "placeholder": (
                     'import json\n'
                     '\n'
-                    'raw = \'{"istanza": "i-001", "stato": "running", "costo_ora": 0.096}\'\n'
+                    'raw = \'{"prodotto": "i-001", "stato": "running", "prezzo": 0.096}\'\n'
                     'dati = ...\n'
                     'print(...)'
                 ),
@@ -4434,11 +3102,11 @@ s3 = boto3.client("s3")  # legge le env var automaticamente
                 "xp_bonus": 0,
             },
             {
-                "testo": "Serializza un dizionario AWS con 3 chiavi (`regione`, `servizio`, `costo`) usando `json.dumps` con `indent=2` e stampalo.",
+                "testo": "Serializza un dizionario Python con 3 chiavi (`regione`, `servizio`, `costo`) usando `json.dumps` con `indent=2` e stampalo.",
                 "placeholder": (
                     'import json\n'
                     '\n'
-                    'config = {"regione": "eu-west-1", "servizio": "EC2", "costo": 70.08}\n'
+                    'config = {"regione": "nord", "servizio": "Server", "costo": 70.08}\n'
                     'print(...)'
                 ),
                 "check": lambda out, err, vs: err is None and "  " in out and "regione" in out and "70.08" in out,
@@ -4447,15 +3115,15 @@ s3 = boto3.client("s3")  # legge le env var automaticamente
                 "xp_bonus": 0,
             },
             {
-                "testo": "Leggi la regione da `os.environ.get('AWS_REGION', 'eu-west-1')`. Poiché non è impostata, deve stampare il default.",
+                "testo": "Leggi la regione da `os.environ.get('APP_CITTA', 'nord')`. Poiché non è impostata, deve stampare il default.",
                 "placeholder": (
                     'import os\n'
                     '\n'
-                    'regione = os.environ.get("AWS_REGION", "eu-west-1")\n'
+                    'regione = os.environ.get("APP_CITTA", "nord")\n'
                     'print(f"Regione: {regione}")'
                 ),
-                "check": lambda out, err, vs: err is None and "eu-west-1" in out.strip(),
-                "feedback": lambda out, err: "Il codice è già corretto — il default 'eu-west-1' appare perché AWS_REGION non è impostata",
+                "check": lambda out, err, vs: err is None and "nord" in out.strip(),
+                "feedback": lambda out, err: "Il codice è già corretto — il default 'nord' appare perché APP_CITTA non è impostata",
                 "hint": "os.environ.get('KEY', 'default') ritorna il default se la variabile non esiste",
                 "xp_bonus": 0,
             },
@@ -4480,12 +3148,12 @@ s3 = boto3.client("s3")  # legge le env var automaticamente
                 "placeholder": (
                     'import json, os\n'
                     '\n'
-                    'DEFAULT = \'{"regione": "eu-west-1", "timeout": 30, "debug": false}\'\n'
+                    'DEFAULT = \'{"regione": "nord", "timeout": 30, "debug": false}\'\n'
                     '\n'
                     'def carica_config(json_str):\n'
                     '    cfg = json.loads(json_str)\n'
-                    '    if os.environ.get("AWS_REGION"):\n'
-                    '        cfg["regione"] = os.environ["AWS_REGION"]\n'
+                    '    if os.environ.get("APP_CITTA"):\n'
+                    '        cfg["regione"] = os.environ["APP_CITTA"]\n'
                     '    # aggiungi override per timeout\n'
                     '    return cfg\n'
                     '\n'
@@ -4505,23 +3173,23 @@ s3 = boto3.client("s3")  # legge le env var automaticamente
 ### List comprehension
 ```python
 # Filtra
-running = [i["id"] for i in istanze if i["stato"] == "running"]
+running = [i["id"] for i in prodotti if i["stato"] == "running"]
 
 # Trasforma
 nomi_upper = [n.upper() for n in nomi]
 
 # Filtra + trasforma
-costi = [i["costo_ora"] * 730 for i in istanze if i["tipo"] == "EC2"]
+costi = [i["prezzo"] * 730 for i in prodotti if i["tipo"] == "Server"]
 ```
 
 ### Dict e Set comprehension
 ```python
 # Dict — mappa id → stato
-stati = {i["id"]: i["stato"] for i in istanze}
+stati = {i["id"]: i["stato"] for i in prodotti}
 print(stati["i-001"])   # "running"
 
 # Set — valori unici
-regioni_usate = {i["regione"] for i in istanze}
+regioni_usate = {i["regione"] for i in prodotti}
 ```
 
 ### Generator expression (lazy)
@@ -4538,19 +3206,19 @@ totale = sum(b["size_gb"] * 0.023 for b in buckets)
 | Gen  | `(expr for x in it)` | stai solo aggregando |
 """,
         "esempio": (
-            'istanze = [\n'
+            'prodotti = [\n'
             '    {"id": "i-001", "stato": "running",  "costo": 0.096},\n'
             '    {"id": "i-002", "stato": "stopped",  "costo": 0.023},\n'
             '    {"id": "i-003", "stato": "running",  "costo": 0.048},\n'
             ']\n'
             '\n'
-            'running_ids = [i["id"] for i in istanze if i["stato"] == "running"]\n'
+            'running_ids = [i["id"] for i in prodotti if i["stato"] == "running"]\n'
             'print("Running:", running_ids)\n'
             '\n'
-            'mappa_stato = {i["id"]: i["stato"] for i in istanze}\n'
+            'mappa_stato = {i["id"]: i["stato"] for i in prodotti}\n'
             'print("Mappa:", mappa_stato)\n'
             '\n'
-            'costo_totale = sum(i["costo"] for i in istanze if i["stato"] == "running")\n'
+            'costo_totale = sum(i["costo"] for i in prodotti if i["stato"] == "running")\n'
             'print(f"Costo running: ${costo_totale:.3f}/ora")'
         ),
         "esercizi": [
@@ -4563,9 +3231,9 @@ totale = sum(b["size_gb"] * 0.023 for b in buckets)
                 "xp_bonus": 0,
             },
             {
-                "testo": "Con la lista di istanze, crea un **dizionario** `{id: costo}` usando dict comprehension.",
+                "testo": "Con la lista di prodotti, crea un **dizionario** `{id: costo}` usando dict comprehension.",
                 "placeholder": (
-                    'istanze = [\n'
+                    'prodotti = [\n'
                     '    {"id": "i-001", "costo": 0.096},\n'
                     '    {"id": "i-002", "costo": 0.023},\n'
                     '    {"id": "i-003", "costo": 0.048},\n'
@@ -4574,24 +3242,24 @@ totale = sum(b["size_gb"] * 0.023 for b in buckets)
                     'print(costi)'
                 ),
                 "check": lambda out, err, vs: err is None and "i-001" in out and "0.096" in out and "{" in out,
-                "feedback": lambda out, err: '{i["id"]: i["costo"] for i in istanze}',
-                "hint": '{i["id"]: i["costo"] for i in istanze}',
+                "feedback": lambda out, err: '{i["id"]: i["costo"] for i in prodotti}',
+                "hint": '{i["id"]: i["costo"] for i in prodotti}',
                 "xp_bonus": 0,
             },
             {
-                "testo": "Usa una **set comprehension** per ottenere le regioni uniche da una lista di istanze.",
+                "testo": "Usa una **set comprehension** per ottenere le regioni uniche da una lista di prodotti.",
                 "placeholder": (
-                    'istanze = [\n'
-                    '    {"id": "i-001", "regione": "eu-west-1"},\n'
-                    '    {"id": "i-002", "regione": "us-east-1"},\n'
-                    '    {"id": "i-003", "regione": "eu-west-1"},\n'
+                    'prodotti = [\n'
+                    '    {"id": "i-001", "regione": "nord"},\n'
+                    '    {"id": "i-002", "regione": "sud"},\n'
+                    '    {"id": "i-003", "regione": "nord"},\n'
                     ']\n'
                     'regioni = {...}\n'
                     'print(len(regioni))  # deve essere 2, non 3'
                 ),
                 "check": lambda out, err, vs: err is None and "2" in _ol(out),
-                "feedback": lambda out, err: '{i["regione"] for i in istanze} — le chiavi doppie vengono eliminate',
-                "hint": '{i["regione"] for i in istanze}',
+                "feedback": lambda out, err: '{i["regione"] for i in prodotti} — le chiavi doppie vengono eliminate',
+                "hint": '{i["regione"] for i in prodotti}',
                 "xp_bonus": 0,
             },
             {
@@ -4611,12 +3279,12 @@ totale = sum(b["size_gb"] * 0.023 for b in buckets)
                 "tipo": "predict",
                 "testo": "🔍 **PREVEDI**: Cosa stamperà questo codice? Traccia la comprehension passo per passo.",
                 "codice": (
-                    'dati = [{"n": "EC2", "c": 80}, {"n": "S3", "c": 5}, {"n": "RDS", "c": 120}]\n'
+                    'dati = [{"n": "Server", "c": 80}, {"n": "Disco", "c": 5}, {"n": "Database", "c": 120}]\n'
                     'risultato = {d["n"]: d["c"] * 12 for d in dati if d["c"] > 10}\n'
                     'print(risultato)'
                 ),
-                "expected": "{'EC2': 960, 'RDS': 1440}",
-                "hint": "Filtra solo c > 10 (EC2=80, RDS=120, S3=5 escluso). Moltiplica per 12. Risultato è un dict.",
+                "expected": "{'Server': 960, 'Database': 1440}",
+                "hint": "Filtra solo c > 10 (Server=80, Database=120, Disco=5 escluso). Moltiplica per 12. Risultato è un dict.",
                 "xp_bonus": 5,
             },
             {
@@ -4672,19 +3340,19 @@ for nome, costo in zip(nomi, costi):
 
 ### sorted — ordina senza modificare
 ```python
-istanze = [{"id": "i-1", "costo": 0.096}, {"id": "i-2", "costo": 0.023}]
+prodotti = [{"id": "i-1", "costo": 0.096}, {"id": "i-2", "costo": 0.023}]
 
-per_costo = sorted(istanze, key=lambda x: x["costo"], reverse=True)
+per_costo = sorted(prodotti, key=lambda x: x["costo"], reverse=True)
 ```
 
 ### None safety
 ```python
-ip = istanza.get("PublicIpAddress")   # ritorna None se mancante
+ip = prodotto.get("PublicIpAddress")   # ritorna None se mancante
 if ip is not None:                    # is None, non == None
     print(f"IP: {ip}")
 
 # oppure con or
-label = istanza.get("Name") or "senza-nome"
+label = prodotto.get("Name") or "senza-nome"
 ```
 
 ### Type hints (Python 3.9+)
@@ -4697,9 +3365,9 @@ aiutano i tool di analisi statica.
 """,
         "esempio": (
             'risorse = [\n'
-            '    {"nome": "web-server",  "costo_ora": 0.096, "stato": "running"},\n'
-            '    {"nome": "db-primary",  "costo_ora": 0.192, "stato": "running"},\n'
-            '    {"nome": "worker-dev",  "costo_ora": 0.023, "stato": "stopped"},\n'
+            '    {"nome": "web-server",  "prezzo": 0.096, "stato": "running"},\n'
+            '    {"nome": "db-primary",  "prezzo": 0.192, "stato": "running"},\n'
+            '    {"nome": "worker-dev",  "prezzo": 0.023, "stato": "stopped"},\n'
             ']\n'
             '\n'
             '# enumerate — log numerato\n'
@@ -4707,64 +3375,64 @@ aiutano i tool di analisi statica.
             '    print(f"{i}. {r[\'nome\']} ({r[\'stato\']})")\n'
             '\n'
             '# sorted — ordina per costo decrescente\n'
-            'per_costo = sorted(risorse, key=lambda x: x["costo_ora"], reverse=True)\n'
+            'per_costo = sorted(risorse, key=lambda x: x["prezzo"], reverse=True)\n'
             'print(f"\\nPiù costosa: {per_costo[0][\'nome\']}")'
         ),
         "esercizi": [
             {
-                "testo": "Usa `enumerate(servizi, start=1)` per stampare ogni servizio nel formato `1. EC2`, `2. S3`, ecc.",
+                "testo": "Usa `enumerate(servizi, start=1)` per stampare ogni servizio nel formato `1. Server`, `2. Disco`, ecc.",
                 "placeholder": (
-                    'servizi = ["EC2", "S3", "Lambda", "RDS"]\n'
+                    'servizi = ["Server", "Disco", "Modulo", "Database"]\n'
                     'for i, s in enumerate(servizi, start=1):\n'
                     '    pass  # stampa il formato richiesto'
                 ),
-                "check": lambda out, err, vs: err is None and "1. EC2" in out.strip() and "4. RDS" in out.strip(),
+                "check": lambda out, err, vs: err is None and "1. Server" in out.strip() and "4. Database" in out.strip(),
                 "feedback": lambda out, err: 'print(f"{i}. {s}")',
                 "hint": 'print(f"{i}. {s}")',
                 "xp_bonus": 0,
             },
             {
-                "testo": "Hai due liste parallele `nomi` e `costi`. Usa `zip` per stampare ogni coppia nel formato `EC2: $70.08`.",
+                "testo": "Hai due liste parallele `nomi` e `costi`. Usa `zip` per stampare ogni coppia nel formato `Server: $70.08`.",
                 "placeholder": (
-                    'nomi  = ["EC2", "S3", "RDS"]\n'
+                    'nomi  = ["Server", "Disco", "Database"]\n'
                     'costi = [70.08, 1.50, 105.84]\n'
                     '\n'
                     'for nome, costo in zip(nomi, costi):\n'
                     '    pass  # stampa il formato richiesto'
                 ),
-                "check": lambda out, err, vs: err is None and "EC2: $70.08" in out.strip() and "RDS: $105.84" in out.strip(),
+                "check": lambda out, err, vs: err is None and "Server: $70.08" in out.strip() and "Database: $105.84" in out.strip(),
                 "feedback": lambda out, err: 'print(f"{nome}: ${costo}")',
                 "hint": 'print(f"{nome}: ${costo}")',
                 "xp_bonus": 0,
             },
             {
-                "testo": "Ordina la lista di istanze per `costo_ora` decrescente con `sorted` e stampa i nomi in quell'ordine.",
+                "testo": "Ordina la lista di prodotti per `prezzo` decrescente con `sorted` e stampa i nomi in quell'ordine.",
                 "placeholder": (
-                    'istanze = [\n'
-                    '    {"nome": "web",  "costo_ora": 0.048},\n'
-                    '    {"nome": "db",   "costo_ora": 0.192},\n'
-                    '    {"nome": "worker","costo_ora": 0.023},\n'
+                    'prodotti = [\n'
+                    '    {"nome": "web",  "prezzo": 0.048},\n'
+                    '    {"nome": "db",   "prezzo": 0.192},\n'
+                    '    {"nome": "worker","prezzo": 0.023},\n'
                     ']\n'
                     'ordinate = sorted(...)\n'
                     'for i in ordinate:\n'
                     '    print(i["nome"])'
                 ),
                 "check": lambda out, err, vs: err is None and list(_ol(out)) != [] and list(out.strip().splitlines())[0].strip() == "db",
-                "feedback": lambda out, err: 'sorted(istanze, key=lambda x: x["costo_ora"], reverse=True)',
-                "hint": 'sorted(istanze, key=lambda x: x["costo_ora"], reverse=True)',
+                "feedback": lambda out, err: 'sorted(prodotti, key=lambda x: x["prezzo"], reverse=True)',
+                "hint": 'sorted(prodotti, key=lambda x: x["prezzo"], reverse=True)',
                 "xp_bonus": 0,
             },
             {
                 "tipo": "debug",
                 "testo": "🐛 **DEBUG**: Questo codice gestisce `None` ma ha 2 bug sottili.",
                 "placeholder": (
-                    'istanza = {"id": "i-001", "stato": "running"}\n'
+                    'prodotto = {"id": "i-001", "stato": "running"}\n'
                     '\n'
-                    'ip = istanza.get("PublicIpAddress")\n'
+                    'ip = prodotto.get("PublicIpAddress")\n'
                     'if ip == None:              # BUG 1: confronto sbagliato\n'
                     '    print("Nessun IP")\n'
                     '\n'
-                    'nome = istanza.get("Tag_Name")\n'
+                    'nome = prodotto.get("Tag_Name")\n'
                     'label = nome if nome else None  # BUG 2: default inutile\n'
                     'print(f"Label: {label}")'
                 ),
@@ -4774,9 +3442,9 @@ aiutano i tool di analisi statica.
                 "xp_bonus": 0,
             },
             {
-                "testo": "🏆 **BOSS**: Combina `enumerate`, `sorted` e None-safety: stampa le istanze ordinate per costo, numerate, mostrando `N/A` se il campo `tag` è `None`.",
+                "testo": "🏆 **BOSS**: Combina `enumerate`, `sorted` e None-safety: stampa le prodotti ordinate per costo, numerate, mostrando `N/A` se il campo `tag` è `None`.",
                 "placeholder": (
-                    'istanze = [\n'
+                    'prodotti = [\n'
                     '    {"nome": "web",    "costo": 0.096, "tag": "prod"},\n'
                     '    {"nome": "worker", "costo": 0.023, "tag": None},\n'
                     '    {"nome": "db",     "costo": 0.192, "tag": "prod"},\n'
@@ -4792,7 +3460,7 @@ aiutano i tool di analisi statica.
                     and "3. worker" in out
                 ),
                 "feedback": lambda out, err: (
-                    'ordinate = sorted(istanze, key=lambda x: x["costo"], reverse=True)\n'
+                    'ordinate = sorted(prodotti, key=lambda x: x["costo"], reverse=True)\n'
                     'for i, ist in enumerate(ordinate, start=1):\n'
                     '    tag = ist["tag"] or "N/A"\n'
                     '    print(f"{i}. {ist[\'nome\']} (${ist[\'costo\']}) [{tag}]")'
@@ -4979,11 +3647,11 @@ logging.warning("memoria 80%") # WARNING: memoria 80%
                 "xp_bonus": 5,
             },
             {
-                "testo": "🏆 **BOSS**: Logga un `ERROR` che include una variabile: `bucket = 'logs'` e registra `Connessione fallita al bucket logs` con una f-string.",
-                "placeholder": 'import logging, sys\nlogging.basicConfig(level=logging.INFO, stream=sys.stdout, format="%(levelname)s: %(message)s")\nbucket = "logs"\n# logga un error con f-string',
-                "check": lambda out, err, vs: err is None and "ERROR" in out and "bucket logs" in out,
-                "feedback": lambda out, err: 'Usa `logging.error(f"Connessione fallita al bucket {bucket}")`.',
-                "hint": 'import logging, sys\nlogging.basicConfig(level=logging.INFO, stream=sys.stdout, format="%(levelname)s: %(message)s")\nbucket = "logs"\nlogging.error(f"Connessione fallita al bucket {bucket}")',
+                "testo": "🏆 **BOSS**: Logga un `ERROR` che include una variabile: `scaffale = 'logs'` e registra `Connessione fallita al scaffale logs` con una f-string.",
+                "placeholder": 'import logging, sys\nlogging.basicConfig(level=logging.INFO, stream=sys.stdout, format="%(levelname)s: %(message)s")\nscaffale = "logs"\n# logga un error con f-string',
+                "check": lambda out, err, vs: err is None and "ERROR" in out and "scaffale logs" in out,
+                "feedback": lambda out, err: 'Usa `logging.error(f"Connessione fallita al scaffale {scaffale}")`.',
+                "hint": 'import logging, sys\nlogging.basicConfig(level=logging.INFO, stream=sys.stdout, format="%(levelname)s: %(message)s")\nscaffale = "logs"\nlogging.error(f"Connessione fallita al scaffale {scaffale}")',
                 "xp_bonus": 15,
             },
         ],
@@ -4998,7 +3666,7 @@ La *standard library* ti regala strutture e funzioni che non devi reinventare.
 **collections**
 ```python
 from collections import Counter, defaultdict
-Counter("aws s3 aws".split())            # Counter({'aws': 2, 's3': 1})
+Counter("mela pera mela".split())          # Counter({'mela': 2, 'pera': 1})
 d = defaultdict(list); d["x"].append(1)  # niente KeyError
 ```
 
@@ -5016,7 +3684,7 @@ reduce(lambda a, b: a + b, [1, 2, 3, 4])  # 10
 def fib(n): ...                            # memoizza i risultati
 ```
 """,
-        "esempio": 'from collections import Counter\nparole = "aws s3 aws ec2 s3 aws".split()\nc = Counter(parole)\nprint(c["aws"])\nprint(c.most_common(1))',
+        "esempio": 'from collections import Counter\nparole = "mela pera mela uva pera mela".split()\nc = Counter(parole)\nprint(c["mela"])\nprint(c.most_common(1))',
         "esercizi": [
             {
                 "testo": "Usa `Counter` per contare le lettere di `'mississippi'` e stampa quante volte appare `'s'`.",
@@ -5027,11 +3695,11 @@ def fib(n): ...                            # memoizza i risultati
                 "xp_bonus": 0,
             },
             {
-                "testo": "Usa `defaultdict(list)` per raggruppare `['ec2', 'eip', 's3', 'sqs']` per lettera iniziale. Stampa la lista sotto la chiave `'s'`.",
-                "placeholder": "from collections import defaultdict\nservizi = ['ec2', 'eip', 's3', 'sqs']\ngruppi = defaultdict(list)\n# raggruppa e stampa gruppi['s']",
-                "check": lambda out, err, vs: err is None and "['s3', 'sqs']" in out,
+                "testo": "Usa `defaultdict(list)` per raggruppare `['mela', 'melone', 'pera', 'pesca']` per lettera iniziale. Stampa la lista sotto la chiave `'p'`.",
+                "placeholder": "from collections import defaultdict\nparole = ['mela', 'melone', 'pera', 'pesca']\ngruppi = defaultdict(list)\n# raggruppa e stampa gruppi['p']",
+                "check": lambda out, err, vs: err is None and "['pera', 'pesca']" in out,
                 "feedback": lambda out, err: "Cicla i servizi e fai `gruppi[s[0]].append(s)`, poi `print(gruppi['s'])`.",
-                "hint": "from collections import defaultdict\nservizi = ['ec2', 'eip', 's3', 'sqs']\ngruppi = defaultdict(list)\nfor s in servizi:\n    gruppi[s[0]].append(s)\nprint(gruppi['s'])",
+                "hint": "from collections import defaultdict\nparole = ['mela', 'melone', 'pera', 'pesca']\ngruppi = defaultdict(list)\nfor s in parole:\n    gruppi[s[0]].append(s)\nprint(gruppi['p'])",
                 "xp_bonus": 10,
             },
             {
@@ -5075,19 +3743,19 @@ re.sub(r"\\d", "X", "id 42")                   # 'id XX'      sostituzione
         "esempio": 'import re\ntesto = "Errore alle 14:30 e 09:05"\norari = re.findall(r"\\d{2}:\\d{2}", testo)\nprint(orari)',
         "esercizi": [
             {
-                "testo": "Usa `re.findall` per estrarre tutti i numeri da `'ho 3 istanze e 12 volumi'`. Stampa la lista.",
-                "placeholder": 'import re\ntesto = "ho 3 istanze e 12 volumi"\n# findall dei numeri e stampa',
+                "testo": "Usa `re.findall` per estrarre tutti i numeri da `'ho 3 prodotti e 12 volumi'`. Stampa la lista.",
+                "placeholder": 'import re\ntesto = "ho 3 prodotti e 12 volumi"\n# findall dei numeri e stampa',
                 "check": lambda out, err, vs: err is None and "['3', '12']" in out,
                 "feedback": lambda out, err: "Usa `re.findall(r'\\\\d+', testo)`.",
-                "hint": 'import re\ntesto = "ho 3 istanze e 12 volumi"\nprint(re.findall(r"\\d+", testo))',
+                "hint": 'import re\ntesto = "ho 3 prodotti e 12 volumi"\nprint(re.findall(r"\\d+", testo))',
                 "xp_bonus": 0,
             },
             {
-                "testo": "Estrai il dominio da `'lorenzo@aws.com'` (tutto ciò che segue la `@`) con `re.search` e un gruppo. Stampa `aws.com`.",
-                "placeholder": 'import re\nemail = "lorenzo@aws.com"\n# search con gruppo (.+) dopo @',
-                "check": lambda out, err, vs: err is None and out.strip() == "aws.com",
+                "testo": "Estrai il dominio da `'lorenzo@demo.com'` (tutto ciò che segue la `@`) con `re.search` e un gruppo. Stampa `demo.com`.",
+                "placeholder": 'import re\nemail = "lorenzo@demo.com"\n# search con gruppo (.+) dopo @',
+                "check": lambda out, err, vs: err is None and out.strip() == "demo.com",
                 "feedback": lambda out, err: "Usa `re.search(r'@(.+)', email).group(1)`.",
-                "hint": 'import re\nemail = "lorenzo@aws.com"\nprint(re.search(r"@(.+)", email).group(1))',
+                "hint": 'import re\nemail = "lorenzo@demo.com"\nprint(re.search(r"@(.+)", email).group(1))',
                 "xp_bonus": 10,
             },
             {
@@ -5237,25 +3905,25 @@ O con `@contextmanager` di `contextlib` (più conciso, con `yield`).
 import sqlite3
 con = sqlite3.connect(":memory:")   # DB in RAM (o un file: "dati.db")
 cur = con.cursor()
-cur.execute("CREATE TABLE servizi (nome TEXT, costo REAL)")
-cur.execute("INSERT INTO servizi VALUES ('ec2', 0.5)")
-cur.executemany("INSERT INTO servizi VALUES (?, ?)", [("s3", 0.02), ("rds", 0.9)])
+cur.execute("CREATE TABLE prodotti (nome TEXT, costo REAL)")
+cur.execute("INSERT INTO prodotti VALUES ('penna', 0.5)")
+cur.executemany("INSERT INTO prodotti VALUES (?, ?)", [("matita", 0.02), ("gomma", 0.9)])
 
-for riga in cur.execute("SELECT * FROM servizi WHERE costo > 0.1"):
+for riga in cur.execute("SELECT * FROM prodotti WHERE costo > 0.1"):
     print(riga)
-print(cur.execute("SELECT COUNT(*) FROM servizi").fetchone()[0])
+print(cur.execute("SELECT COUNT(*) FROM prodotti").fetchone()[0])
 ```
 
 `?` sono **placeholder** sicuri (mai concatenare valori nelle query!). `fetchone()`/`fetchall()` leggono i risultati.
 """,
-        "esempio": 'import sqlite3\ncon = sqlite3.connect(":memory:")\ncur = con.cursor()\ncur.execute("CREATE TABLE t (nome TEXT)")\ncur.execute("INSERT INTO t VALUES (\'ec2\')")\nfor r in cur.execute("SELECT nome FROM t"):\n    print(r[0])',
+        "esempio": 'import sqlite3\ncon = sqlite3.connect(":memory:")\ncur = con.cursor()\ncur.execute("CREATE TABLE t (nome TEXT)")\ncur.execute("INSERT INTO t VALUES (\'penna\')")\nfor r in cur.execute("SELECT nome FROM t"):\n    print(r[0])',
         "esercizi": [
             {
-                "testo": "Crea una tabella `t(nome TEXT)`, inserisci `'ec2'`, poi leggi e stampa il nome (`ec2`).",
+                "testo": "Crea una tabella `t(nome TEXT)`, inserisci `'penna'`, poi leggi e stampa il nome (`penna`).",
                 "placeholder": 'import sqlite3\ncon = sqlite3.connect(":memory:")\ncur = con.cursor()\n# crea, inserisci, seleziona, stampa',
-                "check": lambda out, err, vs: err is None and "ec2" in out,
+                "check": lambda out, err, vs: err is None and "penna" in out,
                 "feedback": lambda out, err: "CREATE TABLE, INSERT, poi `for r in cur.execute('SELECT nome FROM t'): print(r[0])`.",
-                "hint": 'import sqlite3\ncon = sqlite3.connect(":memory:")\ncur = con.cursor()\ncur.execute("CREATE TABLE t (nome TEXT)")\ncur.execute("INSERT INTO t VALUES (\'ec2\')")\nfor r in cur.execute("SELECT nome FROM t"):\n    print(r[0])',
+                "hint": 'import sqlite3\ncon = sqlite3.connect(":memory:")\ncur = con.cursor()\ncur.execute("CREATE TABLE t (nome TEXT)")\ncur.execute("INSERT INTO t VALUES (\'penna\')")\nfor r in cur.execute("SELECT nome FROM t"):\n    print(r[0])',
                 "xp_bonus": 0,
             },
             {
@@ -5269,9 +3937,9 @@ print(cur.execute("SELECT COUNT(*) FROM servizi").fetchone()[0])
             {
                 "tipo": "predict",
                 "testo": "🔍 **PREVEDI**: Cosa stampa la query con WHERE?",
-                "codice": 'import sqlite3\ncon = sqlite3.connect(":memory:")\ncur = con.cursor()\ncur.execute("CREATE TABLE s (nome TEXT, costo REAL)")\ncur.executemany("INSERT INTO s VALUES (?, ?)", [("ec2", 5.0), ("s3", 0.5)])\nprint(cur.execute("SELECT nome FROM s WHERE costo > 1").fetchall())\n',
-                "expected": "[('ec2',)]",
-                "hint": "Solo 'ec2' ha costo > 1. `fetchall` restituisce una lista di tuple: `[('ec2',)]` (tupla con un solo campo).",
+                "codice": 'import sqlite3\ncon = sqlite3.connect(":memory:")\ncur = con.cursor()\ncur.execute("CREATE TABLE s (nome TEXT, costo REAL)")\ncur.executemany("INSERT INTO s VALUES (?, ?)", [("penna", 5.0), ("matita", 0.5)])\nprint(cur.execute("SELECT nome FROM s WHERE costo > 1").fetchall())\n',
+                "expected": "[('penna',)]",
+                "hint": "Solo 'penna' ha costo > 1. `fetchall` restituisce una lista di tuple: `[('penna',)]` (tupla con un solo campo).",
                 "xp_bonus": 5,
             },
             {
@@ -5293,7 +3961,7 @@ Quasi ogni app moderna chiede dati a un server via HTTP. Libreria standard di fa
 
 ```python
 import requests
-r = requests.get("https://api.example.com/istanze")
+r = requests.get("https://api.example.com/prodotti")
 print(r.status_code)    # 200 = OK
 dati = r.json()         # converte la risposta JSON in dict/list Python
 print(dati["nome"])
@@ -5302,22 +3970,22 @@ print(dati["nome"])
 Il cuore non è la chiamata, è **navigare il JSON** che torna (dict e liste annidate).
 Negli esercizi qui sotto **simuliamo** quella risposta con `json.loads(...)` — la struttura è identica a quella che `r.json()` ti darebbe, così impari la parte che conta senza dipendere dalla rete.
 """,
-        "esempio": 'import json\nrisposta = \'{"servizio": "ec2", "stato": "running", "costo": 0.5}\'\ndati = json.loads(risposta)\nprint(dati["stato"])\nprint(dati["costo"])',
+        "esempio": 'import json\nrisposta = \'{"prodotto": "penna", "stato": "disponibile", "prezzo": 0.5}\'\ndati = json.loads(risposta)\nprint(dati["stato"])\nprint(dati["prezzo"])',
         "esercizi": [
             {
-                "testo": "Una API ha risposto con `'{\"servizio\": \"ec2\", \"stato\": \"running\"}'`. Convertila e stampa il valore di `stato`.",
-                "placeholder": 'import json\nrisposta = \'{"servizio": "ec2", "stato": "running"}\'\n# json.loads e stampa lo stato',
+                "testo": "Una API ha risposto con `'{\"prodotto\": \"penna\", \"stato\": \"running\"}'`. Convertila e stampa il valore di `stato`.",
+                "placeholder": 'import json\nrisposta = \'{"prodotto": "penna", "stato": "running"}\'\n# json.loads e stampa lo stato',
                 "check": lambda out, err, vs: err is None and out.strip() == "running",
                 "feedback": lambda out, err: "`dati = json.loads(risposta)` poi `print(dati['stato'])`.",
-                "hint": 'import json\nrisposta = \'{"servizio": "ec2", "stato": "running"}\'\ndati = json.loads(risposta)\nprint(dati["stato"])',
+                "hint": 'import json\nrisposta = \'{"prodotto": "penna", "stato": "running"}\'\ndati = json.loads(risposta)\nprint(dati["stato"])',
                 "xp_bonus": 0,
             },
             {
-                "testo": "La risposta `'{\"region\": \"eu-west-1\", \"istanze\": [{\"id\": \"i-1\"}, {\"id\": \"i-2\"}]}'` contiene una lista. Stampa quante istanze ci sono.",
-                "placeholder": 'import json\nrisposta = \'{"region": "eu-west-1", "istanze": [{"id": "i-1"}, {"id": "i-2"}]}\'\n# conta gli elementi di istanze',
+                "testo": "La risposta `'{\"region\": \"nord\", \"prodotti\": [{\"id\": \"i-1\"}, {\"id\": \"i-2\"}]}'` contiene una lista. Stampa quante prodotti ci sono.",
+                "placeholder": 'import json\nrisposta = \'{"region": "nord", "prodotti": [{"id": "i-1"}, {"id": "i-2"}]}\'\n# conta gli elementi di prodotti',
                 "check": lambda out, err, vs: err is None and "2" in _ol(out),
-                "feedback": lambda out, err: "`len(dati['istanze'])`.",
-                "hint": 'import json\nrisposta = \'{"region": "eu-west-1", "istanze": [{"id": "i-1"}, {"id": "i-2"}]}\'\ndati = json.loads(risposta)\nprint(len(dati["istanze"]))',
+                "feedback": lambda out, err: "`len(dati['prodotti'])`.",
+                "hint": 'import json\nrisposta = \'{"region": "nord", "prodotti": [{"id": "i-1"}, {"id": "i-2"}]}\'\ndati = json.loads(risposta)\nprint(len(dati["prodotti"]))',
                 "xp_bonus": 10,
             },
             {
@@ -5483,7 +4151,7 @@ strategie = {"carta": paga_carta, "paypal": paga_paypal}
 strategie["paypal"](50)
 ```
 
-**Singleton** — una sola istanza condivisa (es. configurazione globale), via `__new__`:
+**Singleton** — una sola prodotto condivisa (es. configurazione globale), via `__new__`:
 ```python
 class Config:
     _istanza = None
@@ -5496,11 +4164,11 @@ class Config:
         "esempio": 'def paga_carta(importo): return f"Carta: {importo}euro"\ndef paga_paypal(importo): return f"PayPal: {importo}euro"\n\nstrategie = {"carta": paga_carta, "paypal": paga_paypal}\nprint(strategie["paypal"](50))',
         "esercizi": [
             {
-                "testo": "**Factory**: scrivi `crea_risorsa(tipo)` che mappa `ec2→Server`, `s3→Storage`, `rds→Database` (default `Sconosciuto`). Stampa `crea_risorsa('s3')`.",
-                "placeholder": "def crea_risorsa(tipo):\n    pass\n\nprint(crea_risorsa('s3'))",
+                "testo": "**Factory**: scrivi `crea_risorsa(tipo)` che mappa `web→Server`, `file→Storage`, `dati→Database` (default `Sconosciuto`). Stampa `crea_risorsa('file')`.",
+                "placeholder": "def crea_risorsa(tipo):\n    pass\n\nprint(crea_risorsa('file'))",
                 "check": lambda out, err, vs: err is None and "Storage" in out,
                 "feedback": lambda out, err: "Usa un dict e `.get(tipo, 'Sconosciuto')`.",
-                "hint": "def crea_risorsa(tipo):\n    risorse = {'ec2': 'Server', 's3': 'Storage', 'rds': 'Database'}\n    return risorse.get(tipo, 'Sconosciuto')\n\nprint(crea_risorsa('s3'))",
+                "hint": "def crea_risorsa(tipo):\n    risorse = {'web': 'Server', 'file': 'Storage', 'dati': 'Database'}\n    return risorse.get(tipo, 'Sconosciuto')\n\nprint(crea_risorsa('file'))",
                 "xp_bonus": 0,
             },
             {
@@ -5516,7 +4184,7 @@ class Config:
                 "testo": "🔍 **PREVEDI**: Due `Config()` sono lo stesso oggetto? Cosa stampa?",
                 "codice": 'class Config:\n    _istanza = None\n    def __new__(cls):\n        if cls._istanza is None:\n            cls._istanza = super().__new__(cls)\n        return cls._istanza\n\na = Config()\nb = Config()\nprint(a is b)\n',
                 "expected": "True",
-                "hint": "Il Singleton via `__new__` restituisce sempre la stessa istanza: `a is b` è True.",
+                "hint": "Il Singleton via `__new__` restituisce sempre la stessa prodotto: `a is b` è True.",
                 "xp_bonus": 5,
             },
             {
