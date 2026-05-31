@@ -80,7 +80,6 @@
  "builtins#0": "L'output deve contiene «1. EC2» · contiene «4. RDS»",
  "builtins#1": "L'output deve contiene «EC2: $70.08» · contiene «RDS: $105.84»",
  "builtins#3": "L'output deve contiene «Nessun IP» · contiene «Label:»",
- "boto3_intro#1": "L'output deve contiene «Costo totale» · contiene «$»",
  "type_hints#0": "L'output deve una riga è «7»",
  "type_hints#1": "L'output deve contiene «[0, 1, 2, 3]»",
  "type_hints#3": "L'output deve l'output è esattamente «None»",
