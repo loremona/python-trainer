@@ -467,76 +467,6 @@ with open(f"{cartella}/report.txt", "w") as f:
         "quando_usarlo": "Ogni volta che devi leggere/scrivere file, navigare cartelle, salvare report, leggere configurazioni. Fondamentale per qualsiasi script di automazione reale.",
     },
 
-    "boto3_intro": {
-        "analogia": """
-**boto3 è il telecomando per AWS.**
-
-Ogni metodo è un tasto. `list_buckets()` è il tasto "mostra cosa c'è su S3".
-`start_instances()` è il tasto "accendi quella macchina".
-
-La differenza con la console AWS: il telecomando boto3 puoi **programmarlo**.
-Puoi dirgli "ogni lunedì alle 8 accendi queste 3 istanze e alle 18 spegnile" — e lo fa da solo.
-
-```python
-import boto3
-
-ec2 = boto3.client("ec2", region_name="eu-west-1")  # "sintonizza" sulla regione
-
-# Tasto: mostrami le istanze
-risposta = ec2.describe_instances()
-
-# Naviga la risposta (sempre un dizionario)
-for res in risposta["Reservations"]:
-    for ist in res["Instances"]:
-        print(ist["InstanceId"], "→", ist["State"]["Name"])
-```
-""",
-        "perche": """
-**Perché boto3 è il punto di arrivo di questo corso?**
-
-Tutto quello che hai imparato porta qui:
-
-| Modulo | Come lo usi con boto3 |
-|--------|----------------------|
-| Variabili | Salvi client, risposte, ID di risorse |
-| Stringhe | Manipoli ARN, nomi, tag, log |
-| Condizioni | Decidi cosa fare in base allo stato delle risorse |
-| Cicli | Iteri su liste di istanze, bucket, snapshot |
-| Funzioni | Organizzi le operazioni in blocchi riutilizzabili |
-| Liste/Dict | Navighi le risposte JSON di boto3 |
-| File | Salvi report, leggi configurazioni |
-
-**boto3 è Python applicato all'infrastruttura cloud.**
-Con questo puoi scrivere il tuo primo script di automazione reale.
-
-**Setup locale:**
-```bash
-pip install boto3
-aws configure  # inserisci: Access Key ID, Secret Key, regione
-```
-""",
-        "errori_comuni": [
-            {
-                "titolo": "❌ NoCredentialsError",
-                "testo": "boto3 non trova le credenziali AWS. Devi configurarle con `aws configure` o settare le variabili d'ambiente.",
-                "codice_sbagliato": "# boto3.client('s3') senza credenziali → NoCredentialsError",
-                "codice_giusto":    "# Nel terminale:\n# aws configure\n# AWS Access Key ID: AKIA...\n# AWS Secret Access Key: ...\n# Default region name: eu-west-1",
-            },
-            {
-                "titolo": "❌ Regione sbagliata",
-                "testo": "Le risorse sono regionali. Un bucket creato in eu-west-1 non si vede se cerchi in us-east-1.",
-                "codice_sbagliato": "ec2 = boto3.client('ec2')  # usa la regione di default, potrebbe essere sbagliata",
-                "codice_giusto":    'ec2 = boto3.client("ec2", region_name="eu-west-1")  # esplicito è meglio',
-            },
-            {
-                "titolo": "❌ Non gestire ClientError",
-                "testo": "Se la risorsa non esiste o non hai i permessi, boto3 lancia `ClientError`. Gestiscila sempre.",
-                "codice_sbagliato": "s3.get_object(Bucket='mio-bucket', Key='file.txt')  # crasha se non esiste",
-                "codice_giusto":    "from botocore.exceptions import ClientError\ntry:\n    s3.get_object(Bucket='mio-bucket', Key='file.txt')\nexcept ClientError as e:\n    print(f\"Errore: {e.response['Error']['Message']}\")",
-            },
-        ],
-        "quando_usarlo": "Ogni volta che vuoi interagire con AWS programmaticamente: creare risorse, leggerle, modificarle, cancellarle, automatizzare operazioni ripetitive.",
-    },
 
     "errori": {
         "analogia": """
@@ -1719,27 +1649,6 @@ APPROCCIO = {
             "Il blocco except gestisce l'errore o lo nasconde?",
             "C'è un `finally` per le risorse da chiudere?",
             "Il messaggio di errore è utile per il debug?",
-        ],
-    },
-    "boto3_intro": {
-        "domanda_chiave": "Cosa restituisce questa API? Stampa sempre la risposta raw la prima volta.",
-        "prima_di_codificare": [
-            "In che regione si trovano le risorse? (sempre `region_name` esplicito)",
-            "Quali permessi IAM servono per questa operazione?",
-            "La risposta è paginata? (liste grandi → usa paginator)",
-            "Cosa faccio se la risorsa non esiste? Se non ho i permessi?",
-        ],
-        "pattern": [
-            "Client → chiama API → naviga risposta (dizionario annidato)",
-            "Sempre try/except ClientError intorno alle chiamate API",
-            "Usa `.get()` per campi opzionali delle risorse",
-            "Testa su risorse staging prima di toccare produzione",
-        ],
-        "checklist": [
-            "Ho specificato `region_name` esplicitamente?",
-            "Ho gestito `ClientError`?",
-            "Ho stampato la risposta raw per capirne la struttura?",
-            "Il codice funziona con 0 risorse, 1 risorsa, N risorse?",
         ],
     },
 
@@ -4889,63 +4798,6 @@ aiutano i tool di analisi statica.
                     '    print(f"{i}. {ist[\'nome\']} (${ist[\'costo\']}) [{tag}]")'
                 ),
                 "hint": 'tag = ist["tag"] or "N/A"',
-                "xp_bonus": 15,
-            },
-        ],
-    },
-    {
-        "id": "boto3_intro", "title": "Intro boto3 (AWS)",
-        "icon": "☁️", "world": "🌌 Nuvola AWS",
-        "teoria": """
-### boto3 — la libreria ufficiale AWS per Python
-```bash
-pip install boto3
-aws configure
-```
-
-```python
-import boto3
-s3 = boto3.client("s3")
-for b in s3.list_buckets()["Buckets"]:
-    print(b["Name"])
-```
-
-```python
-ec2 = boto3.client("ec2", region_name="eu-west-1")
-for res in ec2.describe_instances()["Reservations"]:
-    for ist in res["Instances"]:
-        print(ist["InstanceId"], ist["State"]["Name"])
-```
-
-> 💡 La risposta è sempre un **dizionario** — il modulo 6 non era un caso!
-""",
-        "esempio": (
-            'risposta = {\n'
-            '    "Buckets": [\n'
-            '        {"Name": "mio-bucket-logs",   "CreationDate": "2024-01-15"},\n'
-            '        {"Name": "mio-bucket-backup", "CreationDate": "2024-03-20"},\n'
-            '    ]\n'
-            '}\nfor b in risposta["Buckets"]:\n'
-            '    print(f"→ {b[\'Name\']}  ({b[\'CreationDate\']})")'
-        ),
-        "esercizi": [
-            {
-                "testo": 'Filtra le istanze EC2 simulate e stampa solo gli `InstanceId` con stato `"running"`.',
-                "placeholder": 'istanze = [\n    {"InstanceId": "i-001", "State": "running"},\n    {"InstanceId": "i-002", "State": "stopped"},\n    {"InstanceId": "i-003", "State": "running"},\n]\n# filtra e stampa',
-                "check": lambda out, err, vs: err is None and "i-001" in out and "i-003" in out and "i-002" not in out,
-                "feedback": lambda out, err: (
-                    "i-002 è 'stopped', non deve apparire" if "i-002" in out else
-                    'Filtra con `if i["State"] == "running"` dentro il for loop'
-                ),
-                "hint": 'for i in istanze:\n    if i["State"] == "running":\n        print(i["InstanceId"])',
-                "xp_bonus": 0,
-            },
-            {
-                "testo": '🏆 **BOSS**: Calcola il costo totale S3 (`0.023 $/GB × size_gb`) e stampa `Costo totale: $X.XX`.',
-                "placeholder": 'buckets = [\n    {"Name": "logs",   "size_gb": 120},\n    {"Name": "backup", "size_gb": 500},\n    {"Name": "data",   "size_gb": 80},\n]\nPREZZO = 0.023\n# calcola e stampa',
-                "check": lambda out, err, vs: err is None and "Costo totale" in out and "$" in out,
-                "feedback": lambda out, err: 'Somma `b["size_gb"] * PREZZO` per ogni bucket e stampa con `f"Costo totale: ${totale:.2f}"`',
-                "hint": 'totale = sum(b["size_gb"] * PREZZO for b in buckets)\nprint(f"Costo totale: ${totale:.2f}")',
                 "xp_bonus": 15,
             },
         ],

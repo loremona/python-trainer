@@ -43,7 +43,7 @@ BADGES = {
     "senza_aiuto":   ("🧠", "Senza Aiuto",         "Modulo completato senza hint"),
     "fiamma":        ("🔥", "In Fiamme",           "Streak di 3 giorni"),
     "maestro":       ("🏆", "Maestro del Serpente","Tutti gli esercizi completati"),
-    "cloud_warrior": ("☁️", "Cloud Warrior",       "Modulo boto3 completato"),
+    "cloud_warrior": ("🧭", "Esploratore",         "Primo modulo completato"),
     "perfetto":      ("💯", "Perfezionista",        "5 esercizi al primo tentativo"),
     "notturno":      ("🌙", "Gufo Notturno",        "Studio dopo le 22:00"),
     "velocista":     ("🚀", "Velocista",            "3 esercizi nella stessa sessione"),
@@ -770,7 +770,7 @@ def check_badges():
     if s["streak"] >= 3:                           unlock("fiamma")
     tot = sum(len(m["esercizi"]) for m in CURRICULUM)
     if len(s["completati"]) >= tot:                unlock("maestro")
-    if "boto3_intro" in s.get("modules_completed", []):
+    if s.get("modules_completed"):
         unlock("cloud_warrior")
     from datetime import datetime
     if datetime.now().hour >= 22 and s["completati"]:

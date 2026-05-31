@@ -17,8 +17,6 @@
  "kwargs_unpacking#1": "def scarica(**kwargs):\n    bucket = kwargs.get(\"Bucket\", \"?\")\n    print(f\"Scarico da: {bucket}\")\nparams = {\"Bucket\": \"logs\", \"Prefisso\": \"jan-2024\"}\nscarica(**params)",
  "json_env#0": "import json\nraw = '{\"istanza\": \"i-001\", \"stato\": \"running\", \"costo_ora\": 0.096}'\ndati = json.loads(raw)\nprint(dati[\"stato\"])",
  "json_env#1": "import json\nconfig = {\"regione\": \"eu-west-1\", \"servizio\": \"EC2\", \"costo\": 70.08}\nprint(json.dumps(config, indent=2))",
- "boto3_intro#0": "istanze = [\n    {\"InstanceId\": \"i-001\", \"State\": \"running\"},\n    {\"InstanceId\": \"i-002\", \"State\": \"stopped\"},\n    {\"InstanceId\": \"i-003\", \"State\": \"running\"},\n]\nfor i in istanze:\n    if i[\"State\"] == \"running\":\n        print(i[\"InstanceId\"])",
- "boto3_intro#1": "buckets = [\n    {\"Name\": \"logs\",   \"size_gb\": 120},\n    {\"Name\": \"backup\", \"size_gb\": 500},\n    {\"Name\": \"data\",   \"size_gb\": 80},\n]\nPREZZO = 0.023\ntotale = sum(b[\"size_gb\"] * PREZZO for b in buckets)\nprint(f\"Costo totale: ${totale:.2f}\")",
  "cicli#1": "numeri = [1, 2, 3, 4, 5]\nfor n in numeri:\n    for n in numeri:\n        if n % 2 == 0:\n            print(n)",
  "liste_dizionari#1": "utente = {\n    \"nome\": \"...\",\n    \"ruolo\": \"...\",\n    \"regione\": \"...\"\n}\nprint(...)",
  "automazione#1": "nomi = [\"Mario\", \"Luigi\", \"Peach\"]\nfor n in nomi:\n    print(n.upper())",
