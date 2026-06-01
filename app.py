@@ -31,7 +31,7 @@ LEVELS = [
     (180, "💻 Coder",          "#4299e1"),
     (360, "⚙️ Developer",      "#9f7aea"),
     (600, "☁️ Cloud Engineer", "#ed8936"),
-    (900, "🧙 AWS Wizard",     "#f6e05e"),
+    (900, "🧙 Python Wizard",     "#f6e05e"),
 ]
 
 XP_VALS = dict(esercizio=15, first_try=10, no_hint=5, modulo=25, streak=10)
@@ -84,7 +84,7 @@ TIPS = [
     "💡 **Pro tip**: `dict.get('key', default)` evita KeyError!",
     "💡 **Pro tip**: `*lista` la spacchetta: `print(*[1,2,3])` → `1 2 3`",
     "💡 **Pro tip**: `zip()` itera su due liste insieme!",
-    "💡 **Pro tip**: in boto3 usa `try/except ClientError` per gli errori AWS!",
+    "💡 **Pro tip**: usa `try/except` per gestire gli errori senza far crashare il programma!",
     "💡 **Pro tip**: `list comprehension` è più veloce di for + append!",
 ]
 
@@ -120,12 +120,12 @@ GLOSSARIO = [
     ("Indentazione",   "Gli spazi all'inizio di una riga. In Python definisce i blocchi di codice (if, for, def...)."),
     ("Eccezione",      "Un errore che si verifica durante l'esecuzione. Può essere gestita con `try/except`."),
     ("Traceback",      "Il messaggio di errore di Python: mostra cosa è andato storto e in quale riga."),
-    ("Import",         "Istruzione per caricare un modulo esterno: `import os`, `import boto3`."),
+    ("Import",         "Istruzione per caricare un modulo esterno: `import os`, `import requests`."),
     ("Modulo",         "Un file `.py` (o pacchetto) che contiene funzioni e variabili riutilizzabili."),
-    ("API",            "Application Programming Interface: un modo standardizzato per comunicare con un servizio (es. AWS)."),
-    ("JSON",           "Formato di dati testuale basato su dizionari e liste. Le risposte boto3 sono in formato JSON."),
-    ("ARN",            "Amazon Resource Name: identificatore univoco di una risorsa AWS. Es: `arn:aws:s3:::mio-bucket`."),
-    ("Client (boto3)", "Oggetto boto3 che rappresenta una connessione a un servizio AWS: `boto3.client('s3')`."),
+    ("API",            "Application Programming Interface: un modo standardizzato per far comunicare due programmi (es. un'API meteo)."),
+    ("JSON",           "Formato di dati testuale basato su dizionari e liste. Le risposte delle API sono spesso in JSON."),
+    ("requests",       "Libreria per fare richieste HTTP a un server: `requests.get(url).json()`."),
+    ("Slicing",        "Estrarre una porzione di lista/stringa: `lista[1:4]`, `testo[::-1]` (inverte)."),
     ("f-string",       "Stringa con variabili incorporate: `f'Ciao {nome}'`. Disponibile da Python 3.6+."),
     ("None",           "Valore speciale che significa 'nessun valore'. Ritornato da funzioni senza `return`."),
     ("List comprehension", "Modo compatto di creare liste: `[x*2 for x in lista if x > 0]`."),
@@ -133,8 +133,8 @@ GLOSSARIO = [
     # ── Setup e Ambiente ──────────────────────────────────────────────────
     ("Virtual environment", "Ambiente Python isolato per progetto. Si crea con `python -m venv .venv`. Evita conflitti tra dipendenze di progetti diversi."),
     ("pip",                 "Package manager di Python. `pip install X` installa, `pip freeze > requirements.txt` congela le versioni."),
-    ("requirements.txt",    "File che elenca le dipendenze con versioni esatte (`boto3==1.34.0`). Garantisce riproducibilità del progetto."),
-    ("uv",                  "Alternativa moderna e molto più veloce a pip, scritta in Rust. `uv pip install boto3` — stessa interfaccia."),
+    ("requirements.txt",    "File che elenca le dipendenze con versioni esatte (`requests==1.34.0`). Garantisce riproducibilità del progetto."),
+    ("uv",                  "Alternativa moderna e molto più veloce a pip, scritta in Rust. `uv pip install requests` — stessa interfaccia."),
     ("sys (modulo)",        "Modulo standard con informazioni sull'interprete Python: `sys.version`, `sys.executable`, `sys.argv`."),
 
     # ── Tipi, Casting e Operatori ─────────────────────────────────────────
@@ -186,7 +186,7 @@ GLOSSARIO = [
     ("Attributo di classe", "Variabile condivisa da tutte le istanze di una classe. Definita nel corpo della classe, fuori da `__init__`."),
     ("Ereditarietà",        "Una classe (figlia) estende un'altra (genitore): `class Figlio(Genitore):`. Eredita attributi e metodi."),
     ("super()",             "Chiama il metodo della classe genitore: `super().__init__(...)`. Essenziale nelle classi figlie."),
-    ("Polimorfismo",        "Oggetti di classi diverse rispondono allo stesso metodo in modo specifico. `obj.costo()` funziona per EC2 e S3."),
+    ("Polimorfismo",        "Oggetti di classi diverse rispondono allo stesso metodo in modo specifico. `obj.costo()` funziona per Forno e Frigo."),
 
     # ── OOP Avanzata ──────────────────────────────────────────────────────
     ("Metodi dunder",       "Metodi speciali con doppio underscore: `__str__`, `__repr__`, `__eq__`, `__len__`. Integrano l'oggetto con Python."),
@@ -230,29 +230,29 @@ GLOSSARIO = [
 
 PROGETTO_STEPS = [
     {
-        "titolo": "Step 1 — Le risorse AWS",
+        "titolo": "Step 1 — Le risorse del negozio",
         "descrizione": "Definisci le variabili di configurazione e la struttura dati delle risorse simulate.",
         "istruzioni": """
 Crea:
-- Una variabile `REGIONE = "eu-west-1"`
+- Una variabile `REGIONE = "nord"`
 - Una variabile `SOGLIA_COSTO = 100` (EUR)
 - Una lista `RISORSE` con almeno 4 risorse, ognuna un dizionario con chiavi:
-  `tipo` ("EC2"/"S3"/"RDS"), `nome`, `costo_ora`, `ore_mese`
+  `tipo` ("Forno"/"Frigo"/"Luci"), `nome`, `costo_ora`, `ore_mese`
 """,
-        "placeholder": """REGIONE = "eu-west-1"
+        "placeholder": """REGIONE = "nord"
 SOGLIA_COSTO = 100
 
 RISORSE = [
-    {"tipo": "EC2", "nome": "web-server-prod",  "costo_ora": 0.096, "ore_mese": 730},
-    {"tipo": "EC2", "nome": "worker-staging",   "costo_ora": 0.023, "ore_mese": 200},
-    {"tipo": "S3",  "nome": "backup-bucket",    "costo_ora": 0.002, "ore_mese": 730},
-    {"tipo": "RDS", "nome": "db-prod",          "costo_ora": 0.145, "ore_mese": 730},
+    {"tipo": "Forno", "nome": "web-server-prod",  "costo_ora": 0.096, "ore_mese": 730},
+    {"tipo": "Forno", "nome": "worker-staging",   "costo_ora": 0.023, "ore_mese": 200},
+    {"tipo": "Frigo",  "nome": "backup-deposito",    "costo_ora": 0.002, "ore_mese": 730},
+    {"tipo": "Luci", "nome": "db-prod",          "costo_ora": 0.145, "ore_mese": 730},
 ]
 
 # Stampa quante risorse hai
 print(f"Risorse caricate: {len(RISORSE)}")
 print(f"Regione: {REGIONE}")""",
-        "check": lambda out, err, vs: err is None and "Risorse caricate" in out and "eu-west-1" in out,
+        "check": lambda out, err, vs: err is None and "Risorse caricate" in out and "nord" in out,
         "hint": 'print(f"Risorse caricate: {len(RISORSE)}")',
     },
     {
@@ -264,13 +264,13 @@ Scrivi la funzione `calcola_costo_mensile(risorsa)` che:
 - Arrotonda a 2 decimali con `round()`
 - Ritorna il risultato
 
-Poi itera su `RISORSE` e stampa: `EC2 | web-server-prod → $70.08`
+Poi itera su `RISORSE` e stampa: `Forno | web-server-prod → $70.08`
 """,
         "placeholder": """RISORSE = [
-    {"tipo": "EC2", "nome": "web-server-prod",  "costo_ora": 0.096, "ore_mese": 730},
-    {"tipo": "EC2", "nome": "worker-staging",   "costo_ora": 0.023, "ore_mese": 200},
-    {"tipo": "S3",  "nome": "backup-bucket",    "costo_ora": 0.002, "ore_mese": 730},
-    {"tipo": "RDS", "nome": "db-prod",          "costo_ora": 0.145, "ore_mese": 730},
+    {"tipo": "Forno", "nome": "web-server-prod",  "costo_ora": 0.096, "ore_mese": 730},
+    {"tipo": "Forno", "nome": "worker-staging",   "costo_ora": 0.023, "ore_mese": 200},
+    {"tipo": "Frigo",  "nome": "backup-deposito",    "costo_ora": 0.002, "ore_mese": 730},
+    {"tipo": "Luci", "nome": "db-prod",          "costo_ora": 0.145, "ore_mese": 730},
 ]
 
 def calcola_costo_mensile(risorsa):
@@ -279,7 +279,7 @@ def calcola_costo_mensile(risorsa):
 for r in RISORSE:
     costo = calcola_costo_mensile(r)
     print(f"{r['tipo']} | {r['nome']} → ${costo}")""",
-        "check": lambda out, err, vs: err is None and "70.08" in out and "EC2" in out,
+        "check": lambda out, err, vs: err is None and "70.08" in out and "Forno" in out,
         "hint": "return round(risorsa['costo_ora'] * risorsa['ore_mese'], 2)",
     },
     {
@@ -295,10 +295,10 @@ Aggiungi al codice precedente:
         "placeholder": """SOGLIA_COSTO = 100
 
 RISORSE = [
-    {"tipo": "EC2", "nome": "web-server-prod",  "costo_ora": 0.096, "ore_mese": 730},
-    {"tipo": "EC2", "nome": "worker-staging",   "costo_ora": 0.023, "ore_mese": 200},
-    {"tipo": "S3",  "nome": "backup-bucket",    "costo_ora": 0.002, "ore_mese": 730},
-    {"tipo": "RDS", "nome": "db-prod",          "costo_ora": 0.145, "ore_mese": 730},
+    {"tipo": "Forno", "nome": "web-server-prod",  "costo_ora": 0.096, "ore_mese": 730},
+    {"tipo": "Forno", "nome": "worker-staging",   "costo_ora": 0.023, "ore_mese": 200},
+    {"tipo": "Frigo",  "nome": "backup-deposito",    "costo_ora": 0.002, "ore_mese": 730},
+    {"tipo": "Luci", "nome": "db-prod",          "costo_ora": 0.145, "ore_mese": 730},
 ]
 
 def calcola_costo_mensile(r):
@@ -331,8 +331,8 @@ Stampa: `Report salvato in aws_report.txt`
         "placeholder": """from datetime import date
 
 RISORSE = [
-    {"tipo": "EC2", "nome": "web-server-prod",  "costo_ora": 0.096, "ore_mese": 730},
-    {"tipo": "RDS", "nome": "db-prod",          "costo_ora": 0.145, "ore_mese": 730},
+    {"tipo": "Forno", "nome": "web-server-prod",  "costo_ora": 0.096, "ore_mese": 730},
+    {"tipo": "Luci", "nome": "db-prod",          "costo_ora": 0.145, "ore_mese": 730},
 ]
 SOGLIA_COSTO = 100
 
@@ -347,7 +347,7 @@ def salva_report(risorse, nome_file):
 salva_report(RISORSE, "aws_report.txt")
 print("Report salvato in aws_report.txt")""",
         "check": lambda out, err, vs: err is None and "Report salvato" in out,
-        "hint": 'f.write(f"=== Report AWS {date.today()} ===\\n")\nfor r in risorse:\n    f.write(f"{r[\'tipo\']} | {r[\'nome\']}: ${calcola_costo_mensile(r)}\\n")',
+        "hint": 'f.write(f"=== Report Costi {date.today()} ===\\n")\nfor r in risorse:\n    f.write(f"{r[\'tipo\']} | {r[\'nome\']}: ${calcola_costo_mensile(r)}\\n")',
     },
 ]
 
@@ -589,7 +589,7 @@ _AI_PROMPT_TEMPLATE = """Sei un insegnante di Python. Crea UN esercizio pratico 
 Regole:
 - Risolto con massimo 8 righe di codice Python
 - Deve stampare qualcosa di preciso e verificabile
-- Usa esempi con temi AWS/cloud quando possibile
+- Usa esempi di vita quotidiana (negozio, scuola, cucina) quando possibile
 - Adatto a principianti
 
 Rispondi SOLO con questo JSON, nessun testo fuori:
@@ -1817,7 +1817,7 @@ La programmazione non è memorizzare sintassi — è **scomporre problemi**.
 **1. Capisci l'input e l'output**
 Prima di scrivere una riga, chiediti: *cosa ho? cosa voglio ottenere?*
 ```
-Ho: una lista di istanze EC2 con stato e costo orario
+Ho: una lista di istanze Forno con stato e costo orario
 Voglio: un report con il costo totale delle istanze running
 ```
 
@@ -1861,14 +1861,14 @@ Questo corso non è una lista di argomenti casuali — è una **progressione**.
 Ogni modulo ti dà uno strumento che userai nei successivi.
 """)
         percorso = [
-            ("📦", "Variabili",        "Salvi Access Key, nomi bucket, regioni"),
-            ("✏️", "Stringhe",         "Manipoli ARN, tag, log, nomi risorse"),
-            ("🔀", "Condizioni",        "Decidi: il bucket esiste? L'istanza è running?"),
+            ("📦", "Variabili",        "Salvi Access Key, nomi deposito, regioni"),
+            ("✏️", "Stringhe",         "Manipoli ID, tag, log, nomi risorse"),
+            ("🔀", "Condizioni",        "Decidi: il deposito esiste? L'istanza è running?"),
             ("🔁", "Cicli",            "Iteri su 100 istanze come su 1"),
             ("⚙️", "Funzioni",         "Organizzi il codice in blocchi riutilizzabili"),
-            ("📋", "Liste e Dict",      "Navighi le risposte JSON di boto3"),
+            ("📋", "Liste e Dict",      "Navighi le risposte JSON di requests"),
             ("🤖", "Automazione",       "Leggi config, salvi report, gestisci file"),
-            ("☁️", "boto3",            "Metti tutto insieme: automazione AWS reale"),
+            ("☁️", "requests",            "Metti tutto insieme: automazione del mondo reale"),
         ]
         for i, (icon, titolo, uso_boto3) in enumerate(percorso):
             connettore = "↓" if i < len(percorso) - 1 else "🎯"
@@ -1878,7 +1878,7 @@ Ogni modulo ti dà uno strumento che userai nei successivi.
   <span style="font-size:1.8rem;">{icon}</span>
   <div>
     <div style="font-weight:700;color:#e2e8f0;">{titolo}</div>
-    <div style="font-size:0.82rem;color:#64748b;">In boto3: {uso_boto3}</div>
+    <div style="font-size:0.82rem;color:#64748b;">In requests: {uso_boto3}</div>
   </div>
 </div>
 <div style="text-align:center;color:#4ade80;font-size:1.2rem;margin:2px 0;">{connettore}</div>
@@ -1889,20 +1889,20 @@ Ogni modulo ti dà uno strumento che userai nei successivi.
 ### Cosa sai fare alla fine del corso
 
 - Leggere e scrivere Python da zero
-- Navigare risposte JSON complesse (come quelle di boto3)
-- Scrivere funzioni riutilizzabili per operazioni AWS
+- Navigare risposte JSON complesse (come quelle di requests)
+- Scrivere funzioni riutilizzabili per operazioni reali
 - Iterare su liste di risorse cloud
 - Salvare report e leggere configurazioni da file
 - Filtrare, calcolare, automatizzare con Python
-- Scrivere i tuoi primi script boto3 reali
+- Scrivere i tuoi primi script requests reali
 """)
 
     with tab_glossario:
-        st.markdown("## Glossario Python & AWS")
+        st.markdown("## Glossario Python")
         st.markdown("Tutti i termini tecnici spiegati in italiano semplice.")
         st.markdown("")
 
-        cerca = st.text_input("🔍 Cerca un termine...", placeholder="es. dizionario, ARN, return...")
+        cerca = st.text_input("🔍 Cerca un termine...", placeholder="es. dizionario, ID, return...")
         termini_filtrati = [
             (t, d) for t, d in GLOSSARIO
             if not cerca or cerca.lower() in t.lower() or cerca.lower() in d.lower()
@@ -1935,7 +1935,7 @@ def render_progetto_finale():
     done_all = len(s["completati"])
     sbloccato = done_all >= tot_all // 2  # sbloccato dopo metà corso
 
-    st.markdown("# 🎓 Progetto Finale — AWS Cost Monitor")
+    st.markdown("# 🎓 Progetto Finale — Monitor Costi")
 
     if not sbloccato:
         st.warning(f"Completa almeno metà degli esercizi ({tot_all // 2}/{tot_all}) per sbloccare il progetto finale.")
@@ -1943,9 +1943,9 @@ def render_progetto_finale():
         return
 
     st.markdown("""
-Costruisci un **AWS Cost Monitor** — uno script completo che usa tutto quello che hai imparato.
+Costruisci un **Monitor Costi** — uno script completo che usa tutto quello che hai imparato.
 
-> Variabili · Stringhe · Condizioni · Cicli · Funzioni · Liste/Dict · File · boto3 (simulato)
+> Variabili · Stringhe · Condizioni · Cicli · Funzioni · Liste/Dict · File · requests (simulato)
 
 Il progetto è diviso in **4 step progressivi**. Ogni step si appoggia al precedente.
 """)
@@ -2019,7 +2019,7 @@ Il progetto è diviso in **4 step progressivi**. Ogni step si appoggia al preced
         st.markdown(f"**Progresso progetto: {done_count}/{len(PROGETTO_STEPS)} step completati**")
         st.progress(done_count / len(PROGETTO_STEPS))
         if done_count == len(PROGETTO_STEPS):
-            st.success("🎓 **Progetto completato!** Hai costruito un AWS Cost Monitor funzionante da zero.")
+            st.success("🎓 **Progetto completato!** Hai costruito un Monitor Costi funzionante da zero.")
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
