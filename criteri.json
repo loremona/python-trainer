@@ -112,5 +112,19 @@
  "packaging#3": "L'output deve contiene «1.4.10»",
  "design_patterns#0": "L'output deve contiene «Storage»",
  "design_patterns#1": "L'output deve contiene «50.0»",
- "design_patterns#3": "L'output deve contiene «Miao»"
+ "design_patterns#3": "L'output deve contiene «Miao»",
+ "liste_dizionari#2": "L'output deve elencare solo i servizi con costo mensile > 50 («Server», «Database») e non deve contenere «Disco»",
+ "errori#3": "L'output deve stampare «Connessione chiusa» due volte (il finally scatta sempre), i dati per «prod-logs» e un messaggio tipo «non esiste» per lo scaffale sbagliato",
+ "setup_env#1": "L'output deve essere «OK» se la versione Python è ≥ 3.8, altrimenti «Aggiorna»",
+ "setup_env#4": "Il report deve contenere «Python 3.8+» e l'esito di ogni controllo (OK o MANCANTE)",
+ "scope_closures#1": "L'output deve mostrare la lista ordinata ignorando le maiuscole: «Arancia» deve venire prima di «banana»",
+ "scope_closures#4": "L'output deve contenere solo gli elementi sopra la soglia 50 (60, 70, 80) e non «20»",
+ "tuple_immutabilita#2": "Dopo la modifica della copia superficiale, la riga «orig:» deve mostrare che l'originale contiene anche «dev»",
+ "generatori#4": "L'output deve contenere solo le righe ERROR («timeout», «disco») e nessuna riga INFO",
+ "kwargs_unpacking#4": "L'output deve mostrare i filtri con chiave «Name» per entrambe le chiamate: valori «running»/«stopped» e «base»",
+ "builtins#2": "La prima riga dell'output deve essere «db» (il prezzo più alto), poi gli altri nomi in ordine decrescente",
+ "builtins#4": "L'elenco numerato per costo deve avere «1. db», «3. worker» e «N/A» dove il tag è None",
+ "logging#1": "L'output deve contenere il warning «Attenzione» e nessuna riga INFO",
+ "context_manager#0": "L'output deve essere «apro», «uso», «chiudo» in quest'ordine",
+ "context_manager#2": "L'output deve essere «--inizio--», «dentro», «--fine--» in quest'ordine"
 }
